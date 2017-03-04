@@ -1,0 +1,35 @@
+From f37f8a6a1b333f57a5e40667ee75f56d82153558 Mon Sep 17 00:00:00 2001
+From: WisniaPL <19wisnia89@gmail.com>
+Date: Sun, 22 Jan 2017 18:06:11 +0100
+Subject: [PATCH] drivers/gpu/drm/ast: Fix infinite loop if read fails
+
+---
+ drivers/gpu/drm/ast/ast_main.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/ast/ast_main.c b/drivers/gpu/drm/ast/ast_main.c
+index 6283432..4e7c97a 100644
+--- a/drivers/gpu/drm/ast/ast_main.c
++++ b/drivers/gpu/drm/ast/ast_main.c
+@@ -120,7 +120,8 @@ static int ast_get_dram_info(struct drm_device *dev)
+ 	ast_write32(ast, 0x10000, 0xfc600309);
+ 
+ 	do {
+-		;
++		if (pci_channel_offline(dev->pdev))
++			return -EIO;
+ 	} while (ast_read32(ast, 0x10000) != 0x01);
+ 	data = ast_read32(ast, 0x10004);
+ 
+@@ -343,7 +344,9 @@ int ast_driver_load(struct drm_device *dev, unsigned long flags)
+ 	ast_detect_chip(dev);
+ 
+ 	if (ast->chip != AST1180) {
+-		ast_get_dram_info(dev);
++		ret = ast_get_dram_info(dev);
++		if (ret)
++			goto out_free;
+ 		ast->vram_size = ast_get_vram_info(dev);
+ 		DRM_INFO("dram %d %d %d %08x\n", ast->mclk, ast->dram_type, ast->dram_bus_width, ast->vram_size);
+ 	}
+
