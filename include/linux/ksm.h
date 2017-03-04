@@ -88,6 +88,14 @@ typedef enum {
 
 kal_bool bat_is_charger_exist(void);
 
+/*add for charing detect*/
+typedef enum {
+	KAL_FALSE = 0,
+	KAL_TRUE  = 1,
+} kal_bool;
+
+kal_bool bat_is_charger_exist(void);
+
 #else  /* !CONFIG_KSM */
 
 static inline int ksm_fork(struct mm_struct *mm, struct mm_struct *oldmm)

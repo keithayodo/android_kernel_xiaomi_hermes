@@ -2494,13 +2494,10 @@ static void lcm_udelay(UINT32 us)
 }
 
 static void lcm_mdelay(UINT32 ms)
-{
-	if (ms < 2)
-		udelay(ms * 1000);	/* udelay set max value 2000us=2ms */
-	else
-		mdelay(ms);
+{		
+  	// fixed wakeup lag       	
+	udelay(ms*600);
 }
-
 
 void DSI_set_cmdq_V11_wrapper_DSI0(void *cmdq, unsigned int *pdata, unsigned int queue_size, unsigned char force_update)
 {

@@ -37,7 +37,9 @@
 #include <linux/freezer.h>
 #include <linux/oom.h>
 #include <linux/numa.h>
+#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
+#endif
 #include <linux/cpumask.h>
 #include <linux/fb.h>
 
@@ -1760,11 +1762,9 @@ static void ksm_tuning_pressure(void)
 		if (ksm_thread_sleep_millisecs == 20 &&
 			ksm_thread_pages_to_scan == 100)
 			return;
-		else {
-			/*set to default value */
-			ksm_thread_sleep_millisecs = 20;
-			ksm_thread_pages_to_scan = 100;
-		}
+		/*set to default value */
+		ksm_thread_sleep_millisecs = 20;
+		ksm_thread_pages_to_scan = 100;
 	} else {
 		int num_cpus = num_online_cpus();
 		int three_quater_cpus = ((3 * num_possible_cpus() * 10)/4 + 5)/10;
@@ -1838,9 +1838,9 @@ static int ksmd_should_run(void)
 static int ksm_scan_thread(void *nothing)
 {
 	set_freezable();
-	/* M: set KSMD's priority to the lowest value */
+	// M: set KSMD's priority to the lowest value
 	set_user_nice(current, 19);
-	/* set_user_nice(current, 5); */
+	//set_user_nice(current, 5);
 
 	while (!kthread_should_stop()) {
 		mutex_lock(&ksm_thread_mutex);
@@ -1850,7 +1850,7 @@ static int ksm_scan_thread(void *nothing)
 			ksm_tuning_pressure();
 		#endif
 			ksm_do_scan(ksm_thread_pages_to_scan);
-		}
+                }
 		mutex_unlock(&ksm_thread_mutex);
 
 		try_to_freeze();
@@ -2540,7 +2540,7 @@ static int __init ksm_init(void)
 
 	ksm_thread = kthread_run(ksm_scan_thread, NULL, "ksmd");
 	if (IS_ERR(ksm_thread)) {
-		pr_err("ksm: creating kthread failed\n");
+		printk(KERN_ERR "ksm: creating kthread failed\n");
 		err = PTR_ERR(ksm_thread);
 		goto out_free;
 	}
@@ -2548,7 +2548,7 @@ static int __init ksm_init(void)
 #ifdef CONFIG_SYSFS
 	err = sysfs_create_group(mm_kobj, &ksm_attr_group);
 	if (err) {
-		pr_err("ksm: register sysfs failed\n");
+		printk(KERN_ERR "ksm: register sysfs failed\n");
 		kthread_stop(ksm_thread);
 		goto out_free;
 	}
@@ -2584,3 +2584,4 @@ out:
 	return err;
 }
 module_init(ksm_init)
+

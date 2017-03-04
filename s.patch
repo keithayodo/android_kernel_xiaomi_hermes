@@ -1,35 +1,35 @@
-From f37f8a6a1b333f57a5e40667ee75f56d82153558 Mon Sep 17 00:00:00 2001
-From: WisniaPL <19wisnia89@gmail.com>
-Date: Sun, 22 Jan 2017 18:06:11 +0100
-Subject: [PATCH] drivers/gpu/drm/ast: Fix infinite loop if read fails
+From 7a453c7f8a3fe9ade7f0f5cf9ad5e8707d2229a2 Mon Sep 17 00:00:00 2001
+From: Dinolek <dinolek@o2.pl>
+Date: Sun, 26 Feb 2017 09:52:59 +0100
+Subject: [PATCH] =?UTF-8?q?Reduce=20walk=C4=99=20up=20time?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
 ---
- drivers/gpu/drm/ast/ast_main.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+ drivers/misc/mediatek/video/mt6795/dispsys/ddp_dsi.c | 9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/gpu/drm/ast/ast_main.c b/drivers/gpu/drm/ast/ast_main.c
-index 6283432..4e7c97a 100644
---- a/drivers/gpu/drm/ast/ast_main.c
-+++ b/drivers/gpu/drm/ast/ast_main.c
-@@ -120,7 +120,8 @@ static int ast_get_dram_info(struct drm_device *dev)
- 	ast_write32(ast, 0x10000, 0xfc600309);
+diff --git a/drivers/misc/mediatek/video/mt6795/dispsys/ddp_dsi.c b/drivers/misc/mediatek/video/mt6795/dispsys/ddp_dsi.c
+index f0ce1bd..f6459b0 100644
+--- a/drivers/misc/mediatek/video/mt6795/dispsys/ddp_dsi.c
++++ b/drivers/misc/mediatek/video/mt6795/dispsys/ddp_dsi.c
+@@ -2494,14 +2494,11 @@ static void lcm_udelay(UINT32 us)
+ }
  
- 	do {
--		;
-+		if (pci_channel_offline(dev->pdev))
-+			return -EIO;
- 	} while (ast_read32(ast, 0x10000) != 0x01);
- 	data = ast_read32(ast, 0x10004);
+ static void lcm_mdelay(UINT32 ms)
+-{
+-	if (ms < 2)
+-		udelay(ms * 1000);	/* udelay set max value 2000us=2ms */
+-	else
+-		mdelay(ms);
++{		
++  	// fixed wakeup lag       	
++	udelay(ms*600);
+ }
  
-@@ -343,7 +344,9 @@ int ast_driver_load(struct drm_device *dev, unsigned long flags)
- 	ast_detect_chip(dev);
- 
- 	if (ast->chip != AST1180) {
--		ast_get_dram_info(dev);
-+		ret = ast_get_dram_info(dev);
-+		if (ret)
-+			goto out_free;
- 		ast->vram_size = ast_get_vram_info(dev);
- 		DRM_INFO("dram %d %d %d %08x\n", ast->mclk, ast->dram_type, ast->dram_bus_width, ast->vram_size);
- 	}
+-
+ void DSI_set_cmdq_V11_wrapper_DSI0(void *cmdq, unsigned int *pdata, unsigned int queue_size, unsigned char force_update)
+ {
+ 	DSI_set_cmdq(DISP_MODULE_DSI0, cmdq, pdata, queue_size, force_update);
 
