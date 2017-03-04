@@ -46,10 +46,14 @@
 
 /* battery meter parameter */
 #define CHANGE_TRACKING_POINT
-#define CUST_TRACKING_POINT		0
-#define CUST_R_SENSE         68
-#define CUST_HW_CC		    0
-#define AGING_TUNING_VALUE	100
+#ifdef CONFIG_MTK_HAFG_20
+#define CUST_TRACKING_POINT 0
+#else
+#define CUST_TRACKING_POINT 1
+#endif
+#define CUST_R_SENSE 10
+#define CUST_HW_CC 0
+#define AGING_TUNING_VALUE	103
 #define CUST_R_FG_OFFSET    0
 
 #define OCV_BOARD_COMPESATE	0	/* mV */
