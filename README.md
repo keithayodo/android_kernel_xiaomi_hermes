@@ -3,7 +3,7 @@
 
 =========================================================================
 
-# Works:
+## Works:
 
 	* LCM (NT35596_TIANMA, NT35596_AUO, NT35532_BOE)
 	* Touch (ATMEL, FT5206)
@@ -27,26 +27,26 @@
 	* Camera(s5k3m2, OV5670)
 	* Lens(DF9761BAF)
 
-=========================================================================
-
-# Don't work:
+## Don't work:
 
 	* IR Blaster
 	* Magnetometer (YAS537, AKM09911_NEW)
- 
-=========================================================================
 
-# Bugs:
+## Bugs:
 
 	* Bad audio quality
 	* Kernel show bad temperature
 	* Kernel not showing correct battery %
 
-=========================================================================
+# Other repos
+
+[Device tree](https://github.com/HermesRepos/android_device_xiaomi_hermes/tree/cm-13.0)
+
+[Vendor](https://github.com/HermesRepos/android_vendor_xiaomi_hermes/tree/cm-13.0)
+
 # Authors
 
 	* nofearnohappy
 	* LazyC0DEr
 	* Anomalchik
 	* Dinolek
-
