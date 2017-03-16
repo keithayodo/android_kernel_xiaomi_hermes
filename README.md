@@ -39,9 +39,9 @@
 
 # Other repos
 
-[Device tree](https://github.com/HermesRepos/android_device_xiaomi_hermes/tree/cm-14.1)
+[Device tree](https://github.com/HermesRepos/android_device_xiaomi_hermes/tree/cm-13.0)
 
-[Vendor](https://github.com/HermesRepos/android_vendor_xiaomi_hermes/tree/cm-14.1)
+[Vendor](https://github.com/HermesRepos/android_vendor_xiaomi_hermes/tree/cm-13.0)
 
 # Authors
 
