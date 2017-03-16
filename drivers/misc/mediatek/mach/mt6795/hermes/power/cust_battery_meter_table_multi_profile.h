@@ -3,9 +3,7 @@
 
 #include <mach/mt_typedefs.h>
 
-/* ============================================================ */
-/* define */
-/* ============================================================ */
+
 #define BAT_NTC_10 1
 #define BAT_NTC_47 0
 
@@ -19,30 +17,17 @@
 
 #define RBAT_PULL_UP_VOLT          2800
 
-/* multiple battery profile compile options */
 #define MTK_GET_BATTERY_ID_BY_AUXADC
 #define BATTERY_ID_CHANNEL_NUM 3
 #define TOTAL_BATTERY_NUMBER 4
-/*#define MTK_GET_BATTERY_ID_BY_GPIO*/
 
-/* ============================================================ */
-/* ENUM */
-/* ============================================================ */
-
-/* ============================================================ */
-/* structure */
-/* ============================================================ */
-
-/* ============================================================ */
-/* typedef */
-/* ============================================================ */
 typedef struct _BATTERY_PROFILE_STRUC {
 	kal_int32 percentage;
 	kal_int32 voltage;
 } BATTERY_PROFILE_STRUC, *BATTERY_PROFILE_STRUC_P;
 
 typedef struct _R_PROFILE_STRUC {
-	kal_int32 resistance;	/* Ohm */
+	kal_int32 resistance;
 	kal_int32 voltage;
 } R_PROFILE_STRUC, *R_PROFILE_STRUC_P;
 
@@ -52,19 +37,6 @@ typedef enum {
 	T3_50C
 } PROFILE_TEMPERATURE;
 
-/* ============================================================ */
-/* External Variables */
-/* ============================================================ */
-
-/* ============================================================ */
-/* External function */
-/* ============================================================ */
-
-/* ============================================================ */
-/* <DOD, Battery_Voltage> Table */
-/* ============================================================ */
-
-/* Qmax for battery  */
 kal_int32 g_Q_MAX_POS_50[TOTAL_BATTERY_NUMBER] = { 2500, 2500, 2500, 2500 };
 kal_int32 g_Q_MAX_POS_25[TOTAL_BATTERY_NUMBER] = { 2432, 2432, 2432, 2432 };
 kal_int32 g_Q_MAX_POS_0[TOTAL_BATTERY_NUMBER] = { 2244, 2244, 2244, 2244 };
@@ -79,8 +51,6 @@ kal_int32 g_Q_MAX_SYS_VOLTAGE[TOTAL_BATTERY_NUMBER] = { 3350, 3350, 3350, 3350 }
 kal_int32 g_BATTERYPSEUDO1[TOTAL_BATTERY_NUMBER] = { 4, 4, 4, 4 };
 
 kal_int32 g_battery_id_voltage[TOTAL_BATTERY_NUMBER] = { 500000, 1000000, 1500000, -1 };
-
-/* 0~0.5V for battery 0, 0.5~1V for battery 1, 1~1.5V for battery 2, -1 for the last one (battery 3) */
 
 #if (BAT_NTC_10 == 1)
 BATT_TEMPERATURE Batt_Temperature_Table[TOTAL_BATTERY_NUMBER][17] = {
