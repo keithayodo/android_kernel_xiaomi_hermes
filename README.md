@@ -1,6 +1,5 @@
 # Kernel sources for Xiaomi Redmi Note 2 (Hermes)
 # Kernel version 3.10.72
-# For nougat and marshmallow roms
 
 =========================================================================
 
