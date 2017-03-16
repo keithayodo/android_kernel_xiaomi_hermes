@@ -1,5 +1,6 @@
 # Kernel sources for Xiaomi Redmi Note 2 (Hermes)
 # Kernel version 3.10.72
+# For nougat and marshmallow roms
 
 =========================================================================
 
@@ -36,13 +37,12 @@
 
 	* Bad audio quality
 	* Kernel show bad temperature
-	* Kernel not showing correct battery %
 
 # Other repos
 
-[Device tree](https://github.com/HermesRepos/android_device_xiaomi_hermes/tree/cm-13.0)
+[Device tree](https://github.com/HermesRepos/android_device_xiaomi_hermes/tree/cm-14.1)
 
-[Vendor](https://github.com/HermesRepos/android_vendor_xiaomi_hermes/tree/cm-13.0)
+[Vendor](https://github.com/HermesRepos/android_vendor_xiaomi_hermes/tree/cm-14.1)
 
 # Authors
 
