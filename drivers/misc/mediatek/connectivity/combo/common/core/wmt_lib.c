@@ -393,7 +393,7 @@ P_OSAL_EVENT wmt_lib_get_cmd_event(VOID)
 
 INT32 wmt_lib_set_patch_name(PUINT8 cPatchName)
 {
-	osal_strncpy(gDevWmt.cPatchName, cPatchName, NAME_MAX+1);
+	osal_strncpy(gDevWmt.cPatchName, cPatchName, NAME_MAX);
 	return 0;
 }
 

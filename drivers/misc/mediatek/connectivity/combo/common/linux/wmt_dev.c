@@ -51,7 +51,6 @@
 #define WMT_DEV_MAJOR 190	/* never used number */
 #define WMT_DEV_NUM 1
 #define WMT_DEV_INIT_TO_MS (2 * 1000)
-#define WMT_MAX_PATCH_NUM (0x200)
 
 #if CFG_WMT_PROC_FOR_AEE
 static struct proc_dir_entry *gWmtAeeEntry = NULL;
@@ -425,11 +424,14 @@ INT32 wmt_dev_rx_timeout(P_OSAL_EVENT pEvent)
 INT32 wmt_dev_read_file(PUINT8 pName, const PPUINT8 ppBufPtr, INT32 offset, INT32 padSzBuf)
 {
 	INT32 iRet = -1;
-	INT32 Ret = 0;
+	struct file *fd;
+	/* ssize_t iRet; */
 	INT32 file_len;
+	INT32 read_len;
 	PVOID pBuf;
 
-	const struct firmware *fw = NULL;
+	/* struct cred *cred = get_task_cred(current); */
+	const struct cred *cred = get_current_cred();
 
 	if (!ppBufPtr) {
 		WMT_ERR_FUNC("invalid ppBufptr!\n");
@@ -437,30 +439,52 @@ INT32 wmt_dev_read_file(PUINT8 pName, const PPUINT8 ppBufPtr, INT32 offset, INT3
 	}
 	*ppBufPtr = NULL;
 
-	Ret = request_firmware(&fw, pName, NULL);
-	if (Ret != 0) {
-	        WMT_ERR_FUNC("failed to open or read!(%s), %d\n", pName, Ret);
-	        return MTK_WCN_BOOL_FALSE;
+	fd = filp_open(pName, O_RDONLY, 0);
+	if (!fd || IS_ERR(fd) || !fd->f_op || !fd->f_op->read) {
+		WMT_ERR_FUNC("failed to open or read!(0x%p, %d, %d)\n", fd, cred->fsuid,
+			     cred->fsgid);
+		return -1;
 	}
 
-	file_len = fw->size;
-	pBuf = vmalloc((file_len + padSzBuf + 3) & ~0x3UL);
+	file_len = fd->f_path.dentry->d_inode->i_size;
+	pBuf = vmalloc((file_len + BCNT_PATCH_BUF_HEADROOM + 3) & ~0x3UL);
 	if (!pBuf) {
 		WMT_ERR_FUNC("failed to vmalloc(%d)\n", (INT32) ((file_len + 3) & ~0x3UL));
 		goto read_file_done;
 	}
 
-	memcpy (pBuf + padSzBuf, fw->data, file_len);
+	do {
+		if (fd->f_pos != offset) {
+			if (fd->f_op->llseek) {
+				if (fd->f_op->llseek(fd, offset, 0) != offset) {
+					WMT_ERR_FUNC("failed to seek!!\n");
+					goto read_file_done;
+				}
+			} else {
+				fd->f_pos = offset;
+			}
+		}
+
+		read_len = fd->f_op->read(fd, pBuf + padSzBuf, file_len, &fd->f_pos);
+		if (read_len != file_len) {
+			WMT_WARN_FUNC("read abnormal: read_len(%d), file_len(%d)\n", read_len,
+				      file_len);
+		}
+	} while (false);
+
 	iRet = 0;
 	*ppBufPtr = pBuf;
-        read_file_done:
+
+ read_file_done:
 	if (iRet) {
 		if (pBuf) {
 			vfree(pBuf);
 		}
 	}
-	release_firmware(fw);
-	return (iRet) ? iRet : file_len;
+
+	filp_close(fd, NULL);
+
+	return (iRet) ? iRet : read_len;
 }
 
 /* TODO: [ChangeFeature][George] refine this function name for general filesystem read operation, not patch only. */
@@ -558,27 +582,37 @@ VOID wmt_dev_patch_info_free(VOID)
 
 MTK_WCN_BOOL wmt_dev_is_file_exist(PUINT8 pFileName)
 {
-	INT32 Ret = 0;
-	const struct firmware *fw = NULL;
-
-	if(pFileName == NULL) {
+	struct file *fd = NULL;
+	/* ssize_t iRet; */
+	INT32 fileLen = -1;
+	const struct cred *cred = get_current_cred();
+	if (pFileName == NULL) {
 		WMT_ERR_FUNC("invalid file name pointer(%p)\n", pFileName);
 		return MTK_WCN_BOOL_FALSE;
 	}
-
 	if (osal_strlen(pFileName) < osal_strlen(defaultPatchName)) {
 		WMT_ERR_FUNC("invalid file name(%s)\n", pFileName);
 		return MTK_WCN_BOOL_FALSE;
 	}
 
-	Ret = request_firmware(&fw, pFileName, NULL);
+	/* struct cred *cred = get_task_cred(current); */
 
-	if (Ret != 0) {
-		WMT_ERR_FUNC("failed to open or read!(%s)\n", pFileName);
+	fd = filp_open(pFileName, O_RDONLY, 0);
+	if (!fd || IS_ERR(fd) || !fd->f_op || !fd->f_op->read) {
+		WMT_ERR_FUNC("failed to open or read(%s)!(0x%p, %d, %d)\n", pFileName, fd,
+			     cred->fsuid, cred->fsgid);
 		return MTK_WCN_BOOL_FALSE;
 	}
-	release_firmware(fw);
+	fileLen = fd->f_path.dentry->d_inode->i_size;
+	filp_close(fd, NULL);
+	fd = NULL;
+	if (fileLen <= 0) {
+		WMT_ERR_FUNC("invalid file(%s), length(%d)\n", pFileName, fileLen);
+		return MTK_WCN_BOOL_FALSE;
+	}
+	WMT_ERR_FUNC("valid file(%s), length(%d)\n", pFileName, fileLen);
 	return true;
+
 }
 
 static unsigned long count_last_access_sdio = 0;    
@@ -1139,20 +1173,11 @@ long WMT_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case WMT_IOCTL_SET_PATCH_NUM:{
 			pAtchNum = arg;
 			WMT_INFO_FUNC(" get patch num from launcher = %d\n", pAtchNum);
-
-			if (pAtchNum > 0 && pAtchNum < WMT_MAX_PATCH_NUM) {
-
-				wmt_lib_set_patch_num(pAtchNum);
-
-				if (!pPatchInfo) {
-					pPatchInfo = kzalloc(sizeof(WMT_PATCH_INFO) * pAtchNum, GFP_ATOMIC);
-				} else {
-					WMT_ERR_FUNC("pPatchInfo!=NULL before alloc\n");
-					break;
-				}
-			} else {
-				WMT_ERR_FUNC("patch num == 0! or > MAX patch number\n");
-			}
+			wmt_lib_set_patch_num(pAtchNum);
+			if (pAtchNum > 0)
+				pPatchInfo = kzalloc(sizeof(WMT_PATCH_INFO) *pAtchNum, GFP_ATOMIC);
+			else
+				WMT_ERR_FUNC("patch num == 0!\n");
 			if (!pPatchInfo) {
 				WMT_ERR_FUNC("allocate memory fail!\n");
 				break;
@@ -1162,6 +1187,7 @@ long WMT_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	case WMT_IOCTL_SET_PATCH_INFO:{
 			WMT_PATCH_INFO wMtPatchInfo;
+			P_WMT_PATCH_INFO pTemp = NULL;
 			UINT32 dWloadSeq;
 			static UINT32 counter = 0;
 
@@ -1177,23 +1203,18 @@ long WMT_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			}
 
 			dWloadSeq = wMtPatchInfo.dowloadSeq;
-
-			wMtPatchInfo.patchName[sizeof(wMtPatchInfo.patchName)-1] = '\0';
 			WMT_DBG_FUNC
 			    ("current download seq no is %d,patch name is %s,addres info is 0x%02x,0x%02x,0x%02x,0x%02x\n",
 			     dWloadSeq, wMtPatchInfo.patchName, wMtPatchInfo.addRess[0],
 			     wMtPatchInfo.addRess[1], wMtPatchInfo.addRess[2],
 			     wMtPatchInfo.addRess[3]);
-			if (dWloadSeq <= pAtchNum) {
-				osal_memcpy(pPatchInfo + dWloadSeq - 1, &wMtPatchInfo,
+			osal_memcpy(pPatchInfo + dWloadSeq - 1, &wMtPatchInfo,
 				    sizeof(WMT_PATCH_INFO));
-
-				if (++counter == pAtchNum) {
-					wmt_lib_set_patch_info(pPatchInfo);
-					counter = 0;
-				}
+			pTemp = pPatchInfo + dWloadSeq - 1;
+			if (++counter == pAtchNum) {
+				wmt_lib_set_patch_info(pPatchInfo);
+				counter = 0;
 			}
-
 		}
 		break;
 
