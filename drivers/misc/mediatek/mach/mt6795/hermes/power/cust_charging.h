@@ -15,12 +15,12 @@
 #define ERR_CHARGE_TEMPERATURE  0xFF
 
 /* Linear Charging Threshold */
-#define V_PRE2CC_THRES	 		3200
+#define V_PRE2CC_THRES	 		3400
 #define V_CC2TOPOFF_THRES		4050
 #define RECHARGING_VOLTAGE      4110
 #define CHARGING_FULL_CURRENT    150
 
-/* Charging Current Setting */						   
+/* Charging Current Setting */
 #define USB_CHARGER_CURRENT_SUSPEND			0
 #define USB_CHARGER_CURRENT_UNCONFIGURED	CHARGE_CURRENT_70_00_MA
 #define USB_CHARGER_CURRENT_CONFIGURED		CHARGE_CURRENT_500_00_MA
@@ -34,12 +34,12 @@
 
 
 /* Precise Tunning */
-#define BATTERY_AVERAGE_DATA_NUMBER	3	
+#define BATTERY_AVERAGE_DATA_NUMBER	3
 #define BATTERY_AVERAGE_SIZE 	30
 
 /* charger error check */
 //#define BAT_LOW_TEMP_PROTECT_ENABLE         // stop charging if temp < MIN_CHARGE_TEMPERATURE
-#define V_CHARGER_ENABLE 0				// 1:ON , 0:OFF	
+#define V_CHARGER_ENABLE 0				// 1:ON , 0:OFF
 #define V_CHARGER_MAX 6500				// 6.5 V
 #define V_CHARGER_MIN 4400				// 4.4 V
 
@@ -47,8 +47,8 @@
 #define ONEHUNDRED_PERCENT_TRACKING_TIME	10	// 10 second
 #define NPERCENT_TRACKING_TIME	   			20	// 20 second
 #define SYNC_TO_REAL_TRACKING_TIME  		60	// 60 second
-#define V_0PERCENT_TRACKING 3300
-#define CUST_SYSTEM_OFF_VOLTAGE 3300
+#define V_0PERCENT_TRACKING 3400
+#define CUST_SYSTEM_OFF_VOLTAGE 3400
 #define SYSTEM_OFF_VOLTAGE CUST_SYSTEM_OFF_VOLTAGE
 
 /* Battery Notify */
