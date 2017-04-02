@@ -1012,6 +1012,12 @@ struct _MSDU_INFO_T {
 	/* Compose TxDesc in tx_thread and place here */
 	UINT_8 aucTxDescBuffer[NIC_TX_DESC_AND_PADDING_LENGTH];
 #endif
+#if CFG_DBG_MGT_BUF
+	BOOLEAN                     fgIsUsed;
+	OS_SYSTIME                  rLastAllocTime;
+	OS_SYSTIME                  rLastFreeTime;
+#endif
+
 };
 
 /*!A data structure which is identical with HW MAC TX DMA Descriptor */

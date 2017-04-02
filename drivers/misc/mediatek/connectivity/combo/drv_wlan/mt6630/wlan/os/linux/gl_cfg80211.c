@@ -451,6 +451,7 @@ int mtk_cfg80211_get_station(struct wiphy *wiphy, struct net_device *ndev, u8 *m
 	PARAM_GET_STA_STA_STATISTICS rQueryStaStatistics;
 	UINT_32 u4TotalError;
 	struct net_device_stats *prDevStats;
+	PARAM_802_11_STATISTICS_STRUCT_T rStatistics;
 
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
 	ASSERT(prGlueInfo);
@@ -509,6 +510,21 @@ int mtk_cfg80211_get_station(struct wiphy *wiphy, struct net_device *ndev, u8 *m
 		} else {
 			sinfo->signal = i4Rssi;	/* dBm */
 			prGlueInfo->i4RssiCache = i4Rssi;
+		}
+	}
+
+	if(prGlueInfo->eParamMediaStateIndicated != PARAM_MEDIA_STATE_CONNECTED) {
+		/* not connected */
+		DBGLOG(REQ, WARN, "not yet connected\n");
+	} else {
+		kalMemZero(&rStatistics, sizeof(rStatistics));
+
+		rStatus = kalIoctl(prGlueInfo,
+				   wlanoidQueryStatistics,
+				   &rStatistics, sizeof(rStatistics), TRUE, TRUE, TRUE, &u4BufLen);
+
+		if (rStatus != WLAN_STATUS_SUCCESS) {
+			DBGLOG(INIT, INFO, "query statistics error:%lx\n", rStatus);
 		}
 	}
 
@@ -680,16 +696,16 @@ int mtk_cfg80211_scan(struct wiphy *wiphy,
 	if (request->ie_len > 0)
 		rScanRequest.pucIE = (PUINT_8) (request->ie);
 
+	prGlueInfo->prScanRequest = request;
 	rStatus = kalIoctl(prGlueInfo,
 			   wlanoidSetBssidListScanAdv,
 			   &rScanRequest, sizeof(PARAM_SCAN_REQUEST_ADV_T), FALSE, FALSE, FALSE, &u4BufLen);
 
 	if (rStatus != WLAN_STATUS_SUCCESS) {
+		prGlueInfo->prScanRequest = NULL;
 		DBGLOG(REQ, WARN, "scan error:%lx\n", rStatus);
 		return -EINVAL;
 	}
-
-	prGlueInfo->prScanRequest = request;
 
 	return 0;
 }
@@ -1942,8 +1958,12 @@ mtk_cfg80211_testmode_get_sta_statistics(IN struct wiphy *wiphy, IN void *data, 
 		sizeof(rQueryStaStatistics.au4Reserved), rQueryStaStatistics.au4Reserved);
 
 	i4Status = cfg80211_testmode_reply(skb);
+	return i4Status;
 
 nla_put_failure:
+	DBGLOG(QM, TRACE, "%s nal put fail\n", __func__);
+	kfree_skb(skb);
+
 	return i4Status;
 }
 
@@ -2229,8 +2249,12 @@ int mtk_cfg80211_testmode_get_scan_done(IN struct wiphy *wiphy, IN void *data, I
 	NLA_PUT_U32(skb, NL80211_TESTMODE_P2P_SCANDONE_STATUS, READY_TO_BEAM);
 
 	i4Status = cfg80211_testmode_reply(skb);
+	return i4Status;
 
 nla_put_failure:
+	DBGLOG(QM, TRACE, "%s nla put fail\n", __func__);
+	kfree_skb(skb);
+
 	return i4Status;
 
 }
@@ -2752,8 +2776,12 @@ mtk_cfg80211_testmode_get_lte_channel(IN struct wiphy *wiphy, IN void *data, IN 
 			   AcsChnRepot[0], AcsChnRepot[1], AcsChnRepot[2], AcsChnRepot[3]);
 
 	i4Status = cfg80211_testmode_reply(skb);
+	return i4Status;
 
 nla_put_failure:
+	DBGLOG(QM, TRACE, "%s nla put fail\n", __func__);
+	kfree_skb(skb);
+
 	return i4Status;
 }
 #endif

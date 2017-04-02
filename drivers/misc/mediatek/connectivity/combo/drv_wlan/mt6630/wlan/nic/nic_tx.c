@@ -767,6 +767,11 @@ VOID nicTxInitialize(IN P_ADAPTER_T prAdapter)
 	for (i = 0; i < CFG_TX_MAX_PKT_NUM; i++) {
 		prMsduInfo = (P_MSDU_INFO_T) pucMemHandle;
 		kalMemZero(prMsduInfo, sizeof(MSDU_INFO_T));
+#if CFG_DBG_MGT_BUF
+		prMsduInfo->fgIsUsed = FALSE;
+		prMsduInfo->rLastAllocTime = kalGetTimeTick();
+		prMsduInfo->rLastFreeTime = kalGetTimeTick();
+#endif
 
 		KAL_ACQUIRE_SPIN_LOCK(prAdapter, SPIN_LOCK_TX_MSDU_INFO_LIST);
 		QUEUE_INSERT_TAIL(&prTxCtrl->rFreeMsduInfoList, (P_QUE_ENTRY_T) prMsduInfo);
@@ -2595,6 +2600,9 @@ VOID nicTxReturnMsduInfo(IN P_ADAPTER_T prAdapter, IN P_MSDU_INFO_T prMsduInfoLi
 {
 	P_TX_CTRL_T prTxCtrl;
 	P_MSDU_INFO_T prMsduInfo = prMsduInfoListHead, prNextMsduInfo;
+#if CFG_DBG_MGT_BUF
+	OS_SYSTIME rAllocTime;
+#endif
 
 	KAL_SPIN_LOCK_DECLARATION();
 
@@ -2616,9 +2624,15 @@ VOID nicTxReturnMsduInfo(IN P_ADAPTER_T prAdapter, IN P_MSDU_INFO_T prMsduInfoLi
 		default:
 			break;
 		}
-
+#if CFG_DBG_MGT_BUF
+		rAllocTime = prMsduInfo->rLastAllocTime;
+#endif
 		/* Reset MSDU_INFO fields */
 		kalMemZero(prMsduInfo, sizeof(MSDU_INFO_T));
+#if CFG_DBG_MGT_BUF
+		prMsduInfo->rLastFreeTime = kalGetTimeTick();
+		prMsduInfo->rLastAllocTime = rAllocTime;
+#endif
 
 		KAL_ACQUIRE_SPIN_LOCK(prAdapter, SPIN_LOCK_TX_MSDU_INFO_LIST);
 		QUEUE_INSERT_TAIL(&prTxCtrl->rFreeMsduInfoList, (P_QUE_ENTRY_T) prMsduInfo);
@@ -3130,6 +3144,10 @@ WLAN_STATUS nicTxEnqueueMsdu(IN P_ADAPTER_T prAdapter, IN P_MSDU_INFO_T prMsduIn
 					prCmdInfo->fgSetQuery = TRUE;
 					prCmdInfo->fgNeedResp = FALSE;
 					prCmdInfo->ucCmdSeqNum = prMsduInfoHead->ucTxSeqNum;
+#if CFG_DBG_MGT_BUF
+					prCmdInfo->fgIsUsed = TRUE;
+					prCmdInfo->rLastAllocTime = kalGetTimeTick();
+#endif
 
 					DBGLOG(TX, TRACE, "%s: EN-Q MSDU[0x%p] SEQ[%u] BSS[%u] STA[%u] to CMD Q\n",
 							  __func__, prMsduInfoHead,

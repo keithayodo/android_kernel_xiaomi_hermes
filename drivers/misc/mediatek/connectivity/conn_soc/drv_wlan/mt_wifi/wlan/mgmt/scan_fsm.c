@@ -2099,6 +2099,6 @@ scnPSCNFsm(IN P_ADAPTER_T prAdapter,
 		prScanInfo->eCurrentPSCNState = eNextPSCNState;
 	} while (fgTransitionState);
 
-	return prScanInfo->eCurrentState;
+	return prScanInfo->eCurrentPSCNState;
 }
 #endif

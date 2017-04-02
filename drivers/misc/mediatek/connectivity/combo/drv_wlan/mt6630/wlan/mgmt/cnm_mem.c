@@ -584,6 +584,10 @@ P_MSDU_INFO_T cnmPktAlloc(P_ADAPTER_T prAdapter, UINT_32 u4Length)
 		if (u4Length) {
 			prMsduInfo->prPacket = cnmMemAlloc(prAdapter, RAM_TYPE_BUF, u4Length);
 			prMsduInfo->eSrc = TX_PACKET_MGMT;
+#if CFG_DBG_MGT_BUF
+			prMsduInfo->fgIsUsed = TRUE;
+			prMsduInfo->rLastAllocTime = kalGetTimeTick();
+#endif
 
 			if (prMsduInfo->prPacket == NULL) {
 				KAL_ACQUIRE_SPIN_LOCK(prAdapter, SPIN_LOCK_TX_MSDU_INFO_LIST);
@@ -636,6 +640,10 @@ VOID cnmPktFree(P_ADAPTER_T prAdapter, P_MSDU_INFO_T prMsduInfo)
 		cnmMemFree(prAdapter, prMsduInfo->prPacket);
 		prMsduInfo->prPacket = NULL;
 	}
+#if CFG_DBG_MGT_BUF
+	prMsduInfo->fgIsUsed = FALSE;
+	prMsduInfo->rLastFreeTime = kalGetTimeTick();
+#endif
 
 	KAL_ACQUIRE_SPIN_LOCK(prAdapter, SPIN_LOCK_TX_MSDU_INFO_LIST);
 	QUEUE_INSERT_TAIL(prQueList, &prMsduInfo->rQueEntry);
@@ -1563,6 +1571,46 @@ VOID cnmDumpMemoryStatus(IN P_ADAPTER_T prAdapter)
 
 	DBGLOG(SW4, TRACE, "============= DUMP END =============\n");
 
+#endif
+}
+VOID cnmDumpPktPool(IN P_ADAPTER_T prAdapter, IN BOOLEAN fgAll)
+{
+	UINT_32 i;
+	P_MSDU_INFO_T prMsduInfo;
+	PUINT_8 pucMemHandle;
+	P_WLAN_MAC_HEADER_T prMacHeader;
+
+#if CFG_DBG_MGT_BUF
+	DBGLOG(SW4, INFO, "============= DUMP MSDU Pool =============\n");
+	pucMemHandle = prAdapter->rTxCtrl.pucTxCached;
+	for (i = 0; i < CFG_TX_MAX_PKT_NUM; i++) {
+		prMsduInfo = (P_MSDU_INFO_T) pucMemHandle;
+		pucMemHandle += ALIGN_4(sizeof(MSDU_INFO_T));
+
+		if (!prMsduInfo->fgIsUsed && !fgAll)
+			continue;
+		DBGLOG(SW4, INFO, "MSDU[0x%p] U[%u] Prev/Next[0x%p/0x%p]\n",
+			prMsduInfo, prMsduInfo->fgIsUsed, prMsduInfo->rQueEntry.prPrev,
+			prMsduInfo->rQueEntry.prNext);
+		DBGLOG(SW4, INFO, "Last Alloc/Free[%u/%u]\n",
+			prMsduInfo->rLastAllocTime, prMsduInfo->rLastFreeTime);
+		DBGLOG(SW4, INFO, "SRC[%u] Pkt[0x%p] Type[%u] STA[%u] BSS[%u] WIDX[%u]\n",
+			prMsduInfo->eSrc, prMsduInfo->prPacket, prMsduInfo->ucPacketType,
+			prMsduInfo->ucStaRecIndex, prMsduInfo->ucBssIndex, prMsduInfo->ucWlanIndex);
+		DBGLOG(SW4, INFO, "11/3/1x[%u/%u/%u] Len[%u] MacLen[%u] TC[%u]\n",
+			prMsduInfo->fgIs802_11, prMsduInfo->fgIs802_3, prMsduInfo->fgIs802_1x,
+			prMsduInfo->u2FrameLength, prMsduInfo->ucMacHeaderLength,
+			prMsduInfo->ucTC);
+
+		if (prMsduInfo->fgIs802_11) {
+			prMacHeader = (P_WLAN_MAC_HEADER_T)((ULONG)(prMsduInfo->prPacket) + MAC_TX_RESERVED_FIELD);
+
+			DBGLOG(SW4, INFO, "FC[0x%02x] A1["MACSTR"] A2["MACSTR"] A3["MACSTR"] SEQ[%u] PID[%u]\n",
+				prMacHeader->u2FrameCtrl, MAC2STR(prMacHeader->aucAddr1),
+				MAC2STR(prMacHeader->aucAddr2), MAC2STR(prMacHeader->aucAddr3),
+				prMsduInfo->ucTxSeqNum, prMsduInfo->ucPID);
+		}
+	}
 #endif
 }
 

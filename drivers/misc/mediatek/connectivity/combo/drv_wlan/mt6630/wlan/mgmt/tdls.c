@@ -96,8 +96,6 @@ UINT_32 TdlsexLinkMgt(P_ADAPTER_T prAdapter, PVOID pvSetBuffer, UINT_32 u4SetBuf
 	prCmd = (TDLS_CMD_LINK_MGT_T *) pvSetBuffer;
 	prBssInfo = prAdapter->prAisBssInfo;
 
-	/* printk("\n\n\n  TdlsexLinkMgt\n\n\n"); */
-
 #if 1
 	/* AIS only */
 	if (prBssInfo->eCurrentOPMode == OP_MODE_INFRASTRUCTURE) {
@@ -114,7 +112,6 @@ UINT_32 TdlsexLinkMgt(P_ADAPTER_T prAdapter, PVOID pvSetBuffer, UINT_32 u4SetBuf
 	switch (prCmd->ucActionCode) {
 
 	case TDLS_FRM_ACTION_DISCOVERY_REQ:
-		/* printk("\n\n\n  TDLS_FRM_ACTION_DISCOVERY_REQ\n\n\n"); */
 		if (prStaRec == NULL)
 			return 0;
 		if (TdlsDataFrameSend_DISCOVERY_REQ(prAdapter,
@@ -127,11 +124,9 @@ UINT_32 TdlsexLinkMgt(P_ADAPTER_T prAdapter, PVOID pvSetBuffer, UINT_32 u4SetBuf
 						    prCmd->u4SecBufLen) != TDLS_STATUS_SUCCESS) {
 			return -1;
 		}
-
 		break;
 
 	case TDLS_FRM_ACTION_SETUP_REQ:
-		/* printk("\n\n\n  TDLS_FRM_ACTION_SETUP_REQ\n\n\n"); */
 		if (prStaRec == NULL)
 			return 0;
 		prStaRec = cnmGetTdlsPeerByAddress(prAdapter, prAdapter->prAisBssInfo->ucBssIndex, prCmd->aucPeer);
@@ -146,7 +141,6 @@ UINT_32 TdlsexLinkMgt(P_ADAPTER_T prAdapter, PVOID pvSetBuffer, UINT_32 u4SetBuf
 						prCmd->u4SecBufLen) != TDLS_STATUS_SUCCESS) {
 			return -1;
 		}
-
 		break;
 
 	case TDLS_FRM_ACTION_SETUP_RSP:
@@ -157,7 +151,6 @@ UINT_32 TdlsexLinkMgt(P_ADAPTER_T prAdapter, PVOID pvSetBuffer, UINT_32 u4SetBuf
 		if (prBssInfo->fgTdlsIsProhibited)
 			return 0;
 
-		/* printk("\n\n\n  TDLS_FRM_ACTION_SETUP_RSP\n\n\n"); */
 		if (TdlsDataFrameSend_SETUP_RSP(prAdapter,
 						prStaRec,
 						prCmd->aucPeer,
@@ -168,11 +161,9 @@ UINT_32 TdlsexLinkMgt(P_ADAPTER_T prAdapter, PVOID pvSetBuffer, UINT_32 u4SetBuf
 						prCmd->u4SecBufLen) != TDLS_STATUS_SUCCESS) {
 			return -1;
 		}
-
 		break;
 
 	case TDLS_FRM_ACTION_DISCOVERY_RSP:
-		/* printk("\n\n\n  TDLS_FRM_ACTION_DISCOVERY_RSP\n\n\n"); */
 		if (TdlsDataFrameSend_DISCOVERY_RSP(prAdapter,
 						    prStaRec,
 						    prCmd->aucPeer,
@@ -183,11 +174,9 @@ UINT_32 TdlsexLinkMgt(P_ADAPTER_T prAdapter, PVOID pvSetBuffer, UINT_32 u4SetBuf
 						    prCmd->u4SecBufLen) != TDLS_STATUS_SUCCESS) {
 			return -1;
 		}
-
 		break;
 
 	case TDLS_FRM_ACTION_CONFIRM:
-		/* printk("\n\n\n  TDLS_FRM_ACTION_CONFIRM\n\n\n"); */
 		if (TdlsDataFrameSend_CONFIRM(prAdapter,
 					      prStaRec,
 					      prCmd->aucPeer,
@@ -203,11 +192,7 @@ UINT_32 TdlsexLinkMgt(P_ADAPTER_T prAdapter, PVOID pvSetBuffer, UINT_32 u4SetBuf
 	case TDLS_FRM_ACTION_TEARDOWN:
 
 		prStaRec = cnmGetTdlsPeerByAddress(prAdapter, prAdapter->prAisBssInfo->ucBssIndex, prCmd->aucPeer);
-		if (prCmd->u2StatusCode == TDLS_REASON_CODE_UNREACHABLE) {
-			/* printk("\n\n\n  u2StatusCode == TDLS_REASON_CODE_UNREACHABLE\n\n\n"); */
-			g_arTdlsLink[prStaRec->ucTdlsIndex] = 0;
-		}
-		/* printk("\n\n\n  TDLS_FRM_ACTION_TEARDOWN\n\n\n"); */
+		g_arTdlsLink[prStaRec->ucTdlsIndex] = 0;
 		if (TdlsDataFrameSend_TearDown(prAdapter,
 					       prStaRec,
 					       prCmd->aucPeer,
@@ -216,18 +201,15 @@ UINT_32 TdlsexLinkMgt(P_ADAPTER_T prAdapter, PVOID pvSetBuffer, UINT_32 u4SetBuf
 					       prCmd->u2StatusCode,
 					       (UINT_8 *) (prCmd->aucSecBuf),
 					       prCmd->u4SecBufLen) != TDLS_STATUS_SUCCESS) {
-			/* printk("\n teardown frrame  send failure\n"); */
 			return -1;
 		}
 		break;
 
 	default:
-		/* printk("\n\n\n  default\n\n\n"); */
 		return -EINVAL;
 	}
 
 	return 0;
-
 }
 
 /*----------------------------------------------------------------------------*/

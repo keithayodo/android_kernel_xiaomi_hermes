@@ -2307,9 +2307,6 @@ static struct wireless_dev *wlanNetCreate(PVOID pvData)
 	QUEUE_INITIALIZE(&prGlueInfo->rTxQueue);
 	glSetHifInfo(prGlueInfo, (ULONG) pvData);
 
-	/* Init wakelock */
-	wlanWakeLockInit(prGlueInfo);
-
 	/* main thread is created in this function */
 #if CFG_SUPPORT_MULTITHREAD
 	init_waitqueue_head(&prGlueInfo->waitq_rx);
@@ -2325,6 +2322,7 @@ static struct wireless_dev *wlanNetCreate(PVOID pvData)
 
 	if (!prAdapter) {
 		DBGLOG(INIT, ERROR, "Allocating memory to adapter failed\n");
+		glClearHifInfo(prGlueInfo);
 		goto netcreate_err;
 	}
 
@@ -2390,9 +2388,14 @@ static VOID wlanNetDestroy(struct wireless_dev *prWdev)
 VOID wlanSetSuspendMode(P_GLUE_INFO_T prGlueInfo, BOOLEAN fgEnable)
 {
 	struct net_device *prDev = NULL;
+	UINT_32 u4SetInfoLen = 0;
 
 	if (!prGlueInfo)
 		return;
+
+#if CFG_ROAMING_CTRL_BY_SUSPEND
+	kalIoctl(prGlueInfo, wlanoidSetRoamingCtrl, &fgEnable, sizeof(fgEnable), FALSE, FALSE, TRUE, &u4SetInfoLen);
+#endif
 
 	prDev = prGlueInfo->prDevHandler;
 	if (!prDev)
@@ -2530,6 +2533,16 @@ void set_dbg_level_handler(unsigned char dbg_lvl[DBG_MODULE_NUM])
 static INT_32 wlanProbe(PVOID pvData)
 {
 	struct wireless_dev *prWdev = NULL;
+	enum ENUM_PROBE_FAIL_REASON {
+		BUS_INIT_FAIL,
+		NET_CREATE_FAIL,
+		BUS_SET_IRQ_FAIL,
+		ADAPTER_START_FAIL,
+		NET_REGISTER_FAIL,
+		PROC_INIT_FAIL,
+		FAIL_MET_INIT_PROCFS,
+		FAIL_REASON_NUM
+	} eFailReason;
 	P_WLANDEV_INFO_T prWlandevInfo = NULL;
 	INT_32 i4DevIdx = 0;
 	P_GLUE_INFO_T prGlueInfo = NULL;
@@ -2537,6 +2550,7 @@ static INT_32 wlanProbe(PVOID pvData)
 	INT_32 i4Status = 0;
 	BOOL bRet = FALSE;
 
+	eFailReason = FAIL_REASON_NUM;
 	do {
 		/* 4 <1> Initialize the IO port of the interface */
 		/*  GeorgeKuo: pData has different meaning for _HIF_XXX:
@@ -2546,18 +2560,17 @@ static INT_32 wlanProbe(PVOID pvData)
 		 */
 
 		bRet = glBusInit(pvData);
-
 		/* Cannot get IO address from interface */
 		if (FALSE == bRet) {
-			DBGLOG(INIT, ERROR, "wlanProbe: glBusInit() fail\n");
 			i4Status = -EIO;
+			eFailReason = BUS_INIT_FAIL;
 			break;
 		}
 		/* 4 <2> Create network device, Adapter, KalInfo, prDevHandler(netdev) */
 		prWdev = wlanNetCreate(pvData);
 		if (prWdev == NULL) {
-			DBGLOG(INIT, ERROR, "wlanProbe: No memory for dev and its private\n");
 			i4Status = -ENOMEM;
+			eFailReason = NET_CREATE_FAIL;
 			break;
 		}
 		/* 4 <2.5> Set the ioaddr to HIF Info */
@@ -2569,10 +2582,13 @@ static INT_32 wlanProbe(PVOID pvData)
 		/* 4 <4> Setup IRQ */
 		prWlandevInfo = &arWlanDevInfo[i4DevIdx];
 
+		/* Init wakelock */
+		wlanWakeLockInit(prGlueInfo);
+
 		i4Status = glBusSetIrq(prWdev->netdev, NULL, prGlueInfo);
 
 		if (i4Status != WLAN_STATUS_SUCCESS) {
-			DBGLOG(INIT, ERROR, "wlanProbe: Set IRQ error\n");
+			eFailReason = BUS_SET_IRQ_FAIL;
 			break;
 		}
 
@@ -2655,8 +2671,10 @@ static INT_32 wlanProbe(PVOID pvData)
 bailout:
 			/* kfree(prRegInfo); */
 
-			if (i4Status < 0)
+			if (i4Status < 0) {
+				eFailReason = ADAPTER_START_FAIL;
 				break;
+			}
 		}
 #else
 		/* P_REG_INFO_T prRegInfo = (P_REG_INFO_T) kmalloc(sizeof(REG_INFO_T), GFP_KERNEL); */
@@ -2670,6 +2688,7 @@ bailout:
 
 		if (wlanAdapterStart(prAdapter, prRegInfo, NULL, 0) != WLAN_STATUS_SUCCESS) {
 			i4Status = -EIO;
+			eFailReason = ADAPTER_START_FAIL;
 			break;
 		}
 #endif
@@ -2750,7 +2769,7 @@ bailout:
 		i4DevIdx = wlanNetRegister(prWdev);
 		if (i4DevIdx < 0) {
 			i4Status = -ENXIO;
-			DBGLOG(INIT, ERROR, "wlanProbe: Cannot register the net_device context to the kernel\n");
+			eFailReason = NET_REGISTER_FAIL;
 			break;
 		}
 		/* 4 <4> Register early suspend callback */
@@ -2765,7 +2784,7 @@ bailout:
 #ifdef WLAN_INCLUDE_PROC
 		i4Status = procCreateFsEntry(prGlueInfo);
 		if (i4Status < 0) {
-			DBGLOG(INIT, ERROR, "wlanProbe: init procfs failed\n");
+			eFailReason = PROC_INIT_FAIL;
 			break;
 		}
 #endif /* WLAN_INCLUDE_PROC */
@@ -2783,29 +2802,52 @@ bailout:
 #if (CFG_ENABLE_WIFI_DIRECT && MTK_WCN_HIF_SDIO && CFG_SUPPORT_MTK_ANDROID_KK)
 		register_set_p2p_mode_handler(set_p2p_mode_handler);
 #endif
+#if (CFG_MET_PACKET_TRACE_SUPPORT == 1)
+		DBGLOG(INIT, TRACE, "init MET procfs...\n");
+		i4Status = kalMetInitProcfs(prGlueInfo);
+		if (i4Status < 0) {
+			eFailReason = FAIL_MET_INIT_PROCFS;
+			break;
+		}
+#endif
+
 	} while (FALSE);
 
-	if (i4Status == 0) {
+	if (i4Status == WLAN_STATUS_SUCCESS) {
 #if CFG_SUPPORT_AGPS_ASSIST
 		kalIndicateAgpsNotify(prAdapter, AGPS_EVENT_WLAN_ON, NULL, 0);
 #endif
+		wlanCfgSetSwCtrl(prGlueInfo->prAdapter);
+		wlanCfgSetChip(prGlueInfo->prAdapter);
+		wlanCfgSetCountryCode(prGlueInfo->prAdapter);
 		DBGLOG(INIT, LOUD, "wlanProbe: probe success\n");
 	} else {
-		DBGLOG(INIT, LOUD, "wlanProbe: probe failed\n");
+		DBGLOG(INIT, ERROR, "wlanProbe: probe failed, reason=%d\n", eFailReason);
+		switch (eFailReason) {
+		case FAIL_MET_INIT_PROCFS:
+			kalMetRemoveProcfs();
+		case PROC_INIT_FAIL:
+			wlanNetUnregister(prWdev);
+		case NET_REGISTER_FAIL:
+			set_bit(GLUE_FLAG_HALT_BIT, &prGlueInfo->ulFlag);
+			/* wake up main thread */
+			wake_up_interruptible(&prGlueInfo->waitq);
+			/* wait main thread stops */
+			wait_for_completion_interruptible(&prGlueInfo->rHaltComp);
+			wlanAdapterStop(prAdapter);
+		case ADAPTER_START_FAIL:
+			glBusFreeIrq(prWdev->netdev, *((P_GLUE_INFO_T *) netdev_priv(prWdev->netdev)));
+		case BUS_SET_IRQ_FAIL:
+			/* Destory wakelock */
+			wlanWakeLockUninit(prGlueInfo);
+			wlanNetDestroy(prWdev);
+		case NET_CREATE_FAIL:
+		case BUS_INIT_FAIL:
+		default:
+			break;
+		}
 	}
 
-	wlanCfgSetSwCtrl(prGlueInfo->prAdapter);
-
-	wlanCfgSetChip(prGlueInfo->prAdapter);
-
-	wlanCfgSetCountryCode(prGlueInfo->prAdapter);
-
-#if (CFG_MET_PACKET_TRACE_SUPPORT == 1)
-	DBGLOG(INIT, TRACE, "init MET procfs...\n");
-	i4Status = kalMetInitProcfs(prGlueInfo);
-	if (i4Status < 0)
-		DBGLOG(INIT, ERROR, "wlanProbe: init MET procfs failed\n");
-#endif
 	return i4Status;
 }				/* end of wlanProbe() */
 
@@ -2852,6 +2894,11 @@ static VOID wlanRemove(VOID)
 		free_netdev(prDev);
 		return;
 	}
+	/* complete possible pending oid, which may block wlanRemove  some time
+		and then whole chip reset may failed */
+	if (kalIsResetting())
+		kalOidCmdClearance(prGlueInfo);
+
 #if CFG_ENABLE_BT_OVER_WIFI
 	if (prGlueInfo->rBowInfo.fgIsNetRegistered) {
 		bowNotifyAllLinkDisconnected(prGlueInfo->prAdapter);

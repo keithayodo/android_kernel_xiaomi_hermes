@@ -116,6 +116,12 @@ struct _CMD_INFO_T {
 
 	/* private data */
 	UINT_32 u4PrivateData;
+#if CFG_DBG_MGT_BUF
+	/* Memory check */
+	BOOLEAN fgIsUsed;
+	OS_SYSTIME  rLastAllocTime;
+	OS_SYSTIME  rLastFreeTime;
+#endif
 };
 
 /*******************************************************************************
@@ -156,6 +162,8 @@ wlanSendSetQueryCmd(IN P_ADAPTER_T prAdapter,
 		    PFN_CMD_TIMEOUT_HANDLER pfCmdTimeoutHandler,
 		    UINT_32 u4SetQueryInfoLen,
 		    PUINT_8 pucInfoBuffer, OUT PVOID pvSetQueryBuffer, IN UINT_32 u4SetQueryBufferLen);
+
+VOID cmdBufDumpCmdInfo(IN P_ADAPTER_T prAdapter, IN BOOLEAN fgAll);
 
 /*******************************************************************************
 *                              F U N C T I O N S

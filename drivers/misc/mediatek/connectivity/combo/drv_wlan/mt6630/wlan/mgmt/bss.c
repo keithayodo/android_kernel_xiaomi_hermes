@@ -2048,14 +2048,20 @@ VOID bssAddClient(IN P_ADAPTER_T prAdapter, IN P_BSS_INFO_T prBssInfo, IN P_STA_
 {
 	P_LINK_T prClientList;
 	P_STA_RECORD_T prCurrStaRec;
+	KAL_SPIN_LOCK_DECLARATION();
 
 	ASSERT(prBssInfo);
 
+	/*
+	 * use spin lock to protect atomic operation
+	 */
+	KAL_ACQUIRE_SPIN_LOCK(prAdapter, SPIN_LOCK_INT);
 	prClientList = &prBssInfo->rStaRecOfClientList;
 
 	LINK_FOR_EACH_ENTRY(prCurrStaRec, prClientList, rLinkEntry, STA_RECORD_T) {
 
 		if (prCurrStaRec == prStaRec) {
+			KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_INT);
 			DBGLOG(BSS, WARN,
 				"Current Client List already contains that STA_RECORD_T[" MACSTR "]\n",
 				MAC2STR(prStaRec->aucMacAddr));
@@ -2064,6 +2070,7 @@ VOID bssAddClient(IN P_ADAPTER_T prAdapter, IN P_BSS_INFO_T prBssInfo, IN P_STA_
 	}
 
 	LINK_INSERT_TAIL(prClientList, &prStaRec->rLinkEntry);
+	KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_INT);
 
 	bssCheckClientList(prAdapter, prBssInfo);
 
@@ -2084,9 +2091,14 @@ BOOLEAN bssRemoveClient(IN P_ADAPTER_T prAdapter, IN P_BSS_INFO_T prBssInfo, IN 
 {
 	P_LINK_T prClientList;
 	P_STA_RECORD_T prCurrStaRec;
+	KAL_SPIN_LOCK_DECLARATION();
 
 	ASSERT(prBssInfo);
 
+	/*
+	 * use spin lock to protect atomic operation
+	 */
+	KAL_ACQUIRE_SPIN_LOCK(prAdapter, SPIN_LOCK_INT);
 	prClientList = &prBssInfo->rStaRecOfClientList;
 
 	LINK_FOR_EACH_ENTRY(prCurrStaRec, prClientList, rLinkEntry, STA_RECORD_T) {
@@ -2094,11 +2106,12 @@ BOOLEAN bssRemoveClient(IN P_ADAPTER_T prAdapter, IN P_BSS_INFO_T prBssInfo, IN 
 		if (prCurrStaRec == prStaRec) {
 
 			LINK_REMOVE_KNOWN_ENTRY(prClientList, &prStaRec->rLinkEntry);
+			KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_INT);
 
 			return TRUE;
 		}
 	}
-
+	KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_INT);
 	DBGLOG(BSS, INFO, "Current Client List didn't contain that STA_RECORD_T["
 			   MACSTR "] before removing.\n", MAC2STR(prStaRec->aucMacAddr));
 
@@ -2111,8 +2124,13 @@ P_STA_RECORD_T bssRemoveClientByMac(IN P_ADAPTER_T prAdapter, IN P_BSS_INFO_T pr
 {
 	P_LINK_T prClientList;
 	P_STA_RECORD_T prCurrStaRec;
+	KAL_SPIN_LOCK_DECLARATION();
 
 	ASSERT(prBssInfo);
+	/*
+	 * use spin lock to protect atomic operation
+	 */
+	KAL_ACQUIRE_SPIN_LOCK(prAdapter, SPIN_LOCK_INT);
 
 	prClientList = &prBssInfo->rStaRecOfClientList;
 
@@ -2121,10 +2139,12 @@ P_STA_RECORD_T bssRemoveClientByMac(IN P_ADAPTER_T prAdapter, IN P_BSS_INFO_T pr
 		if (EQUAL_MAC_ADDR(prCurrStaRec->aucMacAddr, pucMac)) {
 
 			LINK_REMOVE_KNOWN_ENTRY(prClientList, &prCurrStaRec->rLinkEntry);
+			KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_INT);
 
 			return prCurrStaRec;
 		}
 	}
+	KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_INT);
 
 	DBGLOG(BSS, INFO, "Current Client List didn't contain that STA_RECORD_T["
 			   MACSTR "] before removing.\n", MAC2STR(pucMac));
@@ -2138,14 +2158,21 @@ P_STA_RECORD_T bssRemoveHeadClient(IN P_ADAPTER_T prAdapter, IN P_BSS_INFO_T prB
 {
 	P_LINK_T prStaRecOfClientList;
 	P_STA_RECORD_T prStaRec = NULL;
+	KAL_SPIN_LOCK_DECLARATION();
 
 	ASSERT(prBssInfo);
+
+	/*
+	 * use spin lock to protect atomic operation
+	 */
+	KAL_ACQUIRE_SPIN_LOCK(prAdapter, SPIN_LOCK_INT);
 
 	prStaRecOfClientList = &prBssInfo->rStaRecOfClientList;
 
 	if (!LINK_IS_EMPTY(prStaRecOfClientList))
 		LINK_REMOVE_HEAD(prStaRecOfClientList, prStaRec, P_STA_RECORD_T);
 
+	KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_INT);
 	bssCheckClientList(prAdapter, prBssInfo);
 
 	return prStaRec;

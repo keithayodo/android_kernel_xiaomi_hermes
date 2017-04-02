@@ -516,13 +516,13 @@ static INT32 stp_sdio_do_own_clr(INT32 wait)
 		if ((chlcpr_value & C_FW_COM_DRV_OWN) == C_FW_COM_DRV_OWN) {
             //4 <2> handle ownership back interrupt
             STPSDIO_DBG_FUNC("firmware ownback is polled!(%d)\n", CLR_OWN_RETRY - retry);
-            usleep_range(2000,2000);
+            udelay(2000);
 			break;
 		} else {
 			STPSDIO_DBG_FUNC
 			    ("firmware ownback is no polled, wait for (%d us) and retry\n",
 			     delay_us);
-			usleep_range(delay_us,delay_us);
+			udelay(delay_us);
 		}
 		if (0 == (retry - 1)%40)
 			STPSDIO_ERR_FUNC("own back failed in %d us, something might goes wrong\n", 40*delay_us);
@@ -857,7 +857,6 @@ static VOID stp_sdio_tx_rx_handling(PVOID pData)
 			}
 
 			if (0x0 == chisr) {
-            	gStpSdioDbgLvl = STPSDIO_LOG_DBG;
 				STPSDIO_ERR_FUNC("******CHISR == 0*****\n");
 
 				stp_sdio_rw_retry(HIF_TYPE_READL, STP_SDIO_RETRY_LIMIT, clt_ctx, CCIR, &val, 0);
@@ -877,10 +876,6 @@ static VOID stp_sdio_tx_rx_handling(PVOID pData)
 				stp_sdio_rw_retry(HIF_TYPE_READL, STP_SDIO_RETRY_LIMIT, clt_ctx, CRPLR, &val, 0);
 				STPSDIO_ERR_FUNC("******CRPLR == 0x%x*****\n", val);
             }
-			else
-			{
-				gStpSdioDbgLvl = STPSDIO_LOG_INFO;
-			}
 
 			if (chisr & FW_OWN_BACK_INT) {
 				STPSDIO_HINT_FUNC("FW_OWN_BACK_INT\n");
@@ -2759,11 +2754,11 @@ static INT32 stp_sdio_rw_retry(ENUM_STP_SDIO_HIF_TYPE_T type, UINT32 retry_limit
 	UINT32 card_id = CLTCTX_CID(clt_ctx);
 	if (card_id != 0x6630)
 	{
-		STPSDIO_INFO_FUNC("card_id is :0x%x, does not support CSR (Common Snapshot Register)\n",
+		STPSDIO_LOUD_FUNC("card_id is :0x%x, does not support CSR (Common Snapshot Register)\n",
 				card_id);
 		retry_limit = 1;
 	}
-	STPSDIO_DBG_FUNC("clt_ctx:0x%x, offset:0x%x, retry_limit:%d\n", clt_ctx, offset, retry_limit);
+	STPSDIO_LOUD_FUNC("clt_ctx:0x%x, offset:0x%x, retry_limit:%d\n", clt_ctx, offset, retry_limit);
 
 	retry_limit = retry_limit == 0 ? 1 : retry_limit;
 	retry_limit = retry_limit > STP_SDIO_MAX_RETRY_NUM ? STP_SDIO_MAX_RETRY_NUM : retry_limit;
@@ -2808,7 +2803,7 @@ static INT32 stp_sdio_rw_retry(ENUM_STP_SDIO_HIF_TYPE_T type, UINT32 retry_limit
 			if (ret == -EIO)
 				retry_flag = 1;
 		} else {
-			STPSDIO_DBG_FUNC("CR:0x:%x value:0x%x\n", offset, *pData);
+			STPSDIO_LOUD_FUNC("CR:0x:%x value:0x%x\n", offset, *pData);
 			break;
 		}
 		retry_limit--;

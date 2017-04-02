@@ -736,7 +736,7 @@ VOID saaFsmRunEventStart(IN P_ADAPTER_T prAdapter, IN P_MSG_HDR_T prMsgHdr)
 
 		if ((prAdapter->rWifiVar.ucAvailablePhyTypeSet & PHY_TYPE_SET_802_11N)
 		    && (prStaRec->ucPhyTypeSet & PHY_TYPE_SET_802_11N)) {
-			prBssInfo->fgAssoc40mBwAllowed = cnmBss40mBwPermitted(prAdapter, prBssInfo->ucBssIndex);
+			prBssInfo->fgAssoc40mBwAllowed = cnmBss40mBwPermittedForJoin(prAdapter, prBssInfo->ucBssIndex);
 		} else {
 			prBssInfo->fgAssoc40mBwAllowed = FALSE;
 		}
@@ -983,7 +983,10 @@ VOID saaFsmRunEventRxAuth(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb)
 
 	ASSERT(prSwRfb);
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
-
+	if (!prStaRec) {
+		nicRxMgmtNoWTBLHandling(prAdapter, prSwRfb);
+		prStaRec = prSwRfb->prStaRec;
+	}
 	/* We should have the corresponding Sta Record. */
 	if (!prStaRec)
 		return;
@@ -1093,7 +1096,10 @@ WLAN_STATUS saaFsmRunEventRxAssoc(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRf
 
 	ASSERT(prSwRfb);
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
-
+	if (!prStaRec) {
+		nicRxMgmtNoWTBLHandling(prAdapter, prSwRfb);
+		prStaRec = prSwRfb->prStaRec;
+	}
 	/* We should have the corresponding Sta Record. */
 	if (!prStaRec) {
 		/* ASSERT(0); */
@@ -1177,7 +1183,10 @@ WLAN_STATUS saaFsmRunEventRxDeauth(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwR
 			   MAC2STR(prDeauthFrame->aucBSSID), prDeauthFrame->u2ReasonCode);
 
 	do {
-
+		if (!prStaRec) {
+			nicRxMgmtNoWTBLHandling(prAdapter, prSwRfb);
+			prStaRec = prSwRfb->prStaRec;
+		}
 		/* We should have the corresponding Sta Record. */
 		if (!prStaRec)
 			break;
@@ -1354,7 +1363,10 @@ WLAN_STATUS saaFsmRunEventRxDisassoc(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prS
 		prDisassocFrame->u2ReasonCode);
 
 	do {
-
+		if (!prStaRec) {
+			nicRxMgmtNoWTBLHandling(prAdapter, prSwRfb);
+			prStaRec = prSwRfb->prStaRec;
+		}
 		/* We should have the corresponding Sta Record. */
 		if (!prStaRec)
 			break;

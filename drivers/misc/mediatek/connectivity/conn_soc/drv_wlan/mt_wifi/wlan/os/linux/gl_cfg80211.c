@@ -2090,8 +2090,12 @@ mtk_cfg80211_testmode_get_sta_statistics(IN struct wiphy *wiphy, IN void *data, 
 		sizeof(rQueryStaStatistics.au4Reserved), rQueryStaStatistics.au4Reserved);
 
 	i4Status = cfg80211_testmode_reply(skb);
+	return i4Status;
 
 nla_put_failure:
+	DBGLOG(QM, ERROR, "mtk_cfg80211_testmode_get_sta_statistics, nla out fail\n");
+	kfree_skb(skb);
+
 	return i4Status;
 }
 
@@ -2130,8 +2134,11 @@ mtk_cfg80211_testmode_get_link_detection(IN struct wiphy *wiphy, IN void *data, 
 	NLA_PUT_U64(skb, NL80211_TESTMODE_LINK_FCS_ERR_CNT, rStatistics.rFCSErrorCount.QuadPart);
 
 	i4Status = cfg80211_testmode_reply(skb);
+	return i4Status;
 
 nla_put_failure:
+	DBGLOG(QM, TRACE, "%s allocate nla put fail\n", __func__);
+	kfree_skb(skb);
 	return i4Status;
 }
 
@@ -2356,8 +2363,11 @@ int mtk_cfg80211_testmode_get_scan_done(IN struct wiphy *wiphy, IN void *data, I
 	NLA_PUT_U32(skb, NL80211_TESTMODE_P2P_SCANDONE_STATUS, READY_TO_BEAM);
 
 	i4Status = cfg80211_testmode_reply(skb);
+	return i4Status;
 
 nla_put_failure:
+	DBGLOG(QM, TRACE, "%s allocate nla put fail\n", __func__);
+	kfree_skb(skb);
 	return i4Status;
 }
 
@@ -2407,8 +2417,12 @@ int mtk_cfg80211_vendor_get_capabilities(struct wiphy *wiphy, struct wireless_de
 	NLA_PUT(skb, NL80211_ATTR_VENDOR_CAPABILITIES, sizeof(rGscanCapabilities), &rGscanCapabilities);
 
 	i4Status = cfg80211_vendor_cmd_reply(skb);
+	return i4Status;
 
 nla_put_failure:
+	DBGLOG(REQ, ERROR, "%s allocate nla put\n", __func__);
+	kfree_skb(skb);
+
 	return i4Status;
 }
 
@@ -3086,8 +3100,11 @@ int mtk_cfg80211_vendor_get_channel_list(struct wiphy *wiphy, struct wireless_de
 	NLA_PUT(skb, GSCAN_ATTRIBUTE_CHANNEL_LIST, (sizeof(wifi_channel) * num_channel), channels);
 
 	i4Status = cfg80211_vendor_cmd_reply(skb);
+	return i4Status;
 
 nla_put_failure:
+	DBGLOG(REQ, TRACE, "%s allocate nla put fail\n", __func__);
+	kfree_skb(skb);
 	return i4Status;
 }
 
@@ -3137,8 +3154,12 @@ int mtk_cfg80211_vendor_llstats_get_info(struct wiphy *wiphy, struct wireless_de
 	i4Status = cfg80211_vendor_cmd_reply(skb);
 
 	kalMemFree(pRadioStat, VIR_MEM_TYPE, u4BufLen);
+	return i4Status;
 
 nla_put_failure:
+	DBGLOG(REQ, TRACE, "%s nla put fail\n", __func__);
+	kfree_skb(skb);
+
 	return i4Status;
 }
 
@@ -3163,6 +3184,9 @@ int mtk_cfg80211_vendor_event_complete_scan(struct wiphy *wiphy, struct wireless
 	return 0;
 
 nla_put_failure:
+	DBGLOG(REQ, ERROR, "%s nla put fail\n", __func__);
+	kfree_skb(skb);
+
 	return -1;
 }
 
@@ -3187,6 +3211,9 @@ int mtk_cfg80211_vendor_event_scan_results_avaliable(struct wiphy *wiphy, struct
 	return 0;
 
 nla_put_failure:
+	DBGLOG(REQ, ERROR, "%s nla put fail\n", __func__);
+	kfree_skb(skb);
+
 	return -1;
 }
 
@@ -3217,6 +3244,9 @@ int mtk_cfg80211_vendor_event_full_scan_results(struct wiphy *wiphy, struct wire
 	return 0;
 
 nla_put_failure:
+	DBGLOG(REQ, ERROR, "%s nla put fail\n", __func__);
+	kfree_skb(skb);
+
 	return -1;
 }
 
@@ -3254,6 +3284,9 @@ int mtk_cfg80211_vendor_event_significant_change_results(struct wiphy *wiphy, st
 	return 0;
 
 nla_put_failure:
+	DBGLOG(REQ, ERROR, "%s nla put fail\n", __func__);
+	kfree_skb(skb);
+
 	return -1;
 }
 
@@ -3289,6 +3322,9 @@ int mtk_cfg80211_vendor_event_hotlist_ap_found(struct wiphy *wiphy, struct wirel
 	return 0;
 
 nla_put_failure:
+	DBGLOG(REQ, ERROR, "%s nla put fail\n", __func__);
+	kfree_skb(skb);
+
 	return -1;
 }
 
@@ -3324,6 +3360,9 @@ int mtk_cfg80211_vendor_event_hotlist_ap_lost(struct wiphy *wiphy, struct wirele
 	return 0;
 
 nla_put_failure:
+	DBGLOG(REQ, ERROR, "%s nla put fail\n", __func__);
+	kfree_skb(skb);
+
 	return -1;
 }
 
@@ -3588,8 +3627,12 @@ mtk_cfg80211_testmode_get_lte_channel(IN struct wiphy *wiphy, IN void *data, IN 
 
 	i4Status = cfg80211_testmode_reply(skb);
 	kalMemFree(prQueryLTEChn, VIR_MEM_TYPE, sizeof(PARAM_GET_CHN_LOAD));
+	return i4Status;
 
 nla_put_failure:
+	DBGLOG(QM, TRACE, "%s nla put fail\n", __func__);
+	kfree_skb(skb);
+
 	return i4Status;
 
 }

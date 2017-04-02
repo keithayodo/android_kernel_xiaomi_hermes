@@ -11948,3 +11948,59 @@ wlanoidGetGSCNResult(IN P_ADAPTER_T prAdapter,
 
 }
 #endif
+
+WLAN_STATUS
+wlanoidNotifyFwSuspend(IN P_ADAPTER_T prAdapter,
+			 IN PVOID pvSetBuffer, IN UINT_32 u4SetBufferLen, OUT PUINT_32 pu4SetInfoLen)
+{
+	CMD_SUSPEND_MODE_SETTING_T rSuspendCmd;
+
+	if (!prAdapter || !pvSetBuffer)
+		return WLAN_STATUS_INVALID_DATA;
+
+	rSuspendCmd.fIsEnableSuspendMode = *(PBOOLEAN)pvSetBuffer;
+	return wlanSendSetQueryCmd(prAdapter,
+				CMD_ID_SET_SUSPEND_MODE,
+				TRUE,
+				FALSE,
+				TRUE,
+				nicCmdEventSetCommon,
+				nicOidCmdTimeoutCommon,
+				sizeof(BOOLEAN),
+				(PUINT_8)&rSuspendCmd,
+				NULL,
+				0);
+}
+
+WLAN_STATUS
+wlanoidSetRoamingCtrl (
+    IN P_ADAPTER_T  prAdapter,
+    IN  PVOID    pvSetBuffer,
+    IN  UINT_32  u4SetBufferLen,
+    OUT PUINT_32 pu4SetInfoLen
+    )
+{
+	CMD_ROAMING_CTRL_T rRoamingCtrl;
+	UINT_8 fgEnable = *(PUINT_8)pvSetBuffer;
+
+	kalMemZero(&rRoamingCtrl, sizeof(rRoamingCtrl));
+	/* fgEnable:  enable roaming detect or not */
+	rRoamingCtrl.fgEnable = TRUE;
+	/* u2RcpiLowThr: RCPI threshold to trigger roaming event */
+	rRoamingCtrl.u2RcpiLowThr = (fgEnable == TRUE) ? 57:57;
+	/* ucRoamingRetryLimit: at most how many times report roaming discovery if roaming failed last time */
+	rRoamingCtrl.ucRoamingRetryLimit = 0;
+
+	return wlanSendSetQueryCmd(prAdapter,
+            CMD_ID_ROAMING_CONTROL,
+            TRUE,
+            FALSE,
+            TRUE,
+            nicCmdEventSetCommon,
+            nicOidCmdTimeoutCommon,
+            sizeof(rRoamingCtrl),
+            (PUINT_8)&rRoamingCtrl,
+            pvSetBuffer,
+            u4SetBufferLen
+            );
+}

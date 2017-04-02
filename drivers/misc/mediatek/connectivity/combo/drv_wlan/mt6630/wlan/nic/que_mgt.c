@@ -2251,8 +2251,6 @@ qmAdjustTcQuotasMthread(IN P_ADAPTER_T prAdapter, OUT P_TX_TCQ_ADJUST_T prTcqAdj
 			prTcqAdjust->acVariation[i] = 0;
 
 		KAL_ACQUIRE_SPIN_LOCK(prAdapter, SPIN_LOCK_TX_RESOURCE);
-		KAL_ACQUIRE_SPIN_LOCK(prAdapter, SPIN_LOCK_TC_RESOURCE);
-
 		/* Obtain the free-to-distribute resource */
 		for (i = 0; i < QM_ACTIVE_TC_NUM; i++) {
 			ai4ExtraQuota[i] =
@@ -2268,8 +2266,6 @@ qmAdjustTcQuotasMthread(IN P_ADAPTER_T prAdapter, OUT P_TX_TCQ_ADJUST_T prTcqAdj
 				prTcqAdjust->acVariation[i] = (INT_8) (-ai4ExtraQuota[i]);
 			}
 		}
-
-		KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_TC_RESOURCE);
 
 		/* Distribute quotas to TCs which need extra resource according to prQM->au4CurrentTcResource */
 		for (i = 0; i < QM_ACTIVE_TC_NUM; i++) {
@@ -3019,13 +3015,20 @@ P_SW_RFB_T qmHandleRxPackets(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfbList
 			fgIsHTran = TRUE;
 			pucEthDestAddr = prCurrSwRfb->pvHeader;
 
+			if (prCurrSwRfb->prRxStatusGroup4 == NULL) {
+				prCurrSwRfb->eDst = RX_PKT_DESTINATION_NULL;
+				QUEUE_INSERT_TAIL(prReturnedQue, (P_QUE_ENTRY_T) prCurrSwRfb);
+				DBGLOG(RX, WARN, "rxStatusGroup4 for data packet is NULL, drop this packet\n");
+				DBGLOG_MEM8(RX, WARN, (PUINT_8) prRxStatus,
+						prRxStatus->u2RxByteCount > 12 ? prRxStatus->u2RxByteCount:12);
+#if CFG_CHIP_RESET_SUPPORT
+				glResetTrigger(prAdapter);
+#endif
+				continue;
+			}
+
 			if (prCurrSwRfb->prStaRec == NULL) {
 				/* Workaround WTBL Issue */
-				if (prCurrSwRfb->prRxStatusGroup4 == NULL) {
-					DBGLOG_MEM8(SW4, TRACE, (PUINT_8) prCurrSwRfb->prRxStatus,
-						    prCurrSwRfb->prRxStatus->u2RxByteCount);
-					ASSERT(0);
-				}
 				HAL_RX_STATUS_GET_TA(prCurrSwRfb->prRxStatusGroup4, aucTaAddr);
 				prCurrSwRfb->ucStaRecIdx = secLookupStaRecIndexFromTA(prAdapter, aucTaAddr);
 				if (prCurrSwRfb->ucStaRecIdx < CFG_NUM_OF_STA_RECORD) {
@@ -5120,7 +5123,21 @@ qmGetFrameAction(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBssIndex,
 			eFrameAction = FRAME_ACTION_DROP_PKT;
 			break;
 		}
-		/* 4 <3> Check based on StaRec */
+		/* 4 <3> Queue, if BSS is absent, drop probe response */
+		if (prBssInfo && prBssInfo->fgIsNetAbsent) {
+			if (prMsduInfo && isProbeResponse(prMsduInfo)) {
+				DBGLOG(TX, INFO, "Drop probe response (BSS[%u] Absent)\n",
+					prBssInfo->ucBssIndex);
+
+				eFrameAction = FRAME_ACTION_DROP_PKT;
+			} else {
+				DBGLOG(TX, INFO, "Queue packets (BSS[%u] Absent)\n",
+					prBssInfo->ucBssIndex);
+				eFrameAction = FRAME_ACTION_QUEUE_PKT;
+			}
+			break;
+		}
+		/* 4 <4> Check based on StaRec */
 		if (prStaRec) {
 			/* 4 <3.1> Drop, if StaRec is not in use */
 			if (!prStaRec->fgIsInUse) {
@@ -5146,13 +5163,6 @@ qmGetFrameAction(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBssIndex,
 				}
 			}
 		}
-		/* 4 <4> Queue, if BSS is absent */
-		if (prBssInfo->fgIsNetAbsent) {
-			DBGLOG(QM, TRACE, "Queue packets (BSS[%u] Absent)\n", prBssInfo->ucBssIndex);
-			eFrameAction = FRAME_ACTION_QUEUE_PKT;
-			break;
-		}
-
 	} while (FALSE);
 
 	/* <5> Resource CHECK! */
@@ -5452,6 +5462,9 @@ VOID qmDumpQueueStatus(IN P_ADAPTER_T prAdapter)
 	P_GLUE_INFO_T prGlueInfo;
 	UINT_32 i, u4TotalBufferCount, u4TotalPageCount;
 	UINT_32 u4CurBufferCount, u4CurPageCount;
+	PUINT_8 pucMemHandle;
+	P_MSDU_INFO_T prMsduInfo = NULL;
+	QUE_T rNotReturnedQue;
 
 	DEBUGFUNC(("%s", __func__));
 
@@ -5539,6 +5552,52 @@ VOID qmDumpQueueStatus(IN P_ADAPTER_T prAdapter)
 	DBGLOG(SW4, INFO, "MGMT: FreeMgmt[%u/%u] PendingMgmt[%u]\n",
 			   prAdapter->rTxCtrl.rFreeMsduInfoList.u4NumElem, CFG_TX_MAX_PKT_NUM,
 			   prAdapter->rTxCtrl.rTxMgmtTxingQueue.u4NumElem);
+
+	pucMemHandle = prTxCtrl->pucTxCached;
+	QUEUE_INITIALIZE(&rNotReturnedQue);
+	for (i = 0; i < CFG_TX_MAX_PKT_NUM; i++) {
+		P_MSDU_INFO_T prFreeMsduInfo = NULL;
+
+		prMsduInfo = (P_MSDU_INFO_T) pucMemHandle;
+		prFreeMsduInfo = (P_MSDU_INFO_T)QUEUE_GET_HEAD(&prAdapter->rTxCtrl.rFreeMsduInfoList);
+		while (prFreeMsduInfo && prFreeMsduInfo != prMsduInfo)
+			prFreeMsduInfo = (P_MSDU_INFO_T)QUEUE_GET_NEXT_ENTRY(&prFreeMsduInfo->rQueEntry);
+		if (!prFreeMsduInfo)
+			QUEUE_INSERT_TAIL(&rNotReturnedQue, &prMsduInfo->rQueEntry);
+		pucMemHandle += ALIGN_4(sizeof(MSDU_INFO_T));
+	}
+	DBGLOG(SW4, INFO, "not returned MSDU queue length: %u\n", rNotReturnedQue.u4NumElem);
+	prMsduInfo = (P_MSDU_INFO_T)QUEUE_GET_HEAD(&rNotReturnedQue);
+	while (prMsduInfo) {
+		P_MSDU_INFO_T prMsduInfo1 = NULL, prMsduInfo2 = NULL, prMsduInfo3 = NULL;
+
+		prMsduInfo1 = (P_MSDU_INFO_T)QUEUE_GET_NEXT_ENTRY(&prMsduInfo->rQueEntry);
+		if (!prMsduInfo1) {
+			DBGLOG(SW4, INFO, "src %d, 1x %d\n", prMsduInfo->eSrc, prMsduInfo->fgIs802_1x);
+			break;
+		}
+		prMsduInfo2 = (P_MSDU_INFO_T)QUEUE_GET_NEXT_ENTRY(&prMsduInfo1->rQueEntry);
+		if (!prMsduInfo2) {
+			DBGLOG(SW4, INFO, "src %d, 1x %d; src %d, 1x %d\n",
+			prMsduInfo->eSrc, prMsduInfo->fgIs802_1x,
+			prMsduInfo1->eSrc, prMsduInfo1->fgIs802_1x);
+			break;
+		}
+		prMsduInfo3 = (P_MSDU_INFO_T)QUEUE_GET_NEXT_ENTRY(&prMsduInfo2->rQueEntry);
+		if (!prMsduInfo3) {
+			DBGLOG(SW4, INFO, "src %d, 1x %d; src %d, 1x %d; src %d, 1x %d\n",
+			prMsduInfo->eSrc, prMsduInfo->fgIs802_1x,
+			prMsduInfo1->eSrc, prMsduInfo1->fgIs802_1x,
+			prMsduInfo2->eSrc, prMsduInfo2->fgIs802_1x);
+			break;
+		}
+		DBGLOG(SW4, INFO, "src %d, 1x %d; src %d, 1x %d; src %d, 1x %d; src %d, 1x %d\n",
+		prMsduInfo->eSrc, prMsduInfo->fgIs802_1x,
+		prMsduInfo1->eSrc, prMsduInfo1->fgIs802_1x,
+		prMsduInfo2->eSrc, prMsduInfo2->fgIs802_1x,
+		prMsduInfo3->eSrc, prMsduInfo3->fgIs802_1x);
+		prMsduInfo = (P_MSDU_INFO_T)QUEUE_GET_NEXT_ENTRY(&prMsduInfo3->rQueEntry);
+	}
 
 	DBGLOG(SW4, INFO, "---------------------------------\n\n");
 }
@@ -6341,7 +6400,7 @@ VOID qmDetectArpNoResponse(P_ADAPTER_T prAdapter, P_MSDU_INFO_T prMsduInfo)
 	if (u2EtherType != ETH_P_ARP || (apIp[0] | apIp[1] | apIp[2] | apIp[3]) == 0)
 		return;
 
-	if (strncmp(apIp, &pucData[ETH_TYPE_LEN_OFFSET + 26], sizeof(apIp))) /* dest ip address */
+	if (kalMemCmp(apIp, &pucData[ETH_TYPE_LEN_OFFSET + 26], sizeof(apIp))) /* dest ip address */
 		return;
 
 	arpOpCode = (pucData[ETH_TYPE_LEN_OFFSET + 8] << 8) | (pucData[ETH_TYPE_LEN_OFFSET + 8 + 1]);
@@ -6381,7 +6440,7 @@ VOID qmHandleRxArpPackets(P_ADAPTER_T prAdapter, P_SW_RFB_T prSwRfb)
 				prAdapter->prAisBssInfo->prStaRecOfAP->aucMacAddr) {
 			if (EQUAL_MAC_ADDR(&(pucData[ETH_TYPE_LEN_OFFSET + 10]), /* src hardware address */
 					prAdapter->prAisBssInfo->prStaRecOfAP->aucMacAddr)) {
-				strncpy(apIp, &(pucData[ETH_TYPE_LEN_OFFSET + 16]), sizeof(apIp)); /* src ip address */
+				kalMemCopy(apIp, &(pucData[ETH_TYPE_LEN_OFFSET + 16]), sizeof(apIp));
 				DBGLOG(INIT, TRACE, "get arp response from AP %d.%d.%d.%d\n",
 					apIp[0], apIp[1], apIp[2], apIp[3]);
 			}

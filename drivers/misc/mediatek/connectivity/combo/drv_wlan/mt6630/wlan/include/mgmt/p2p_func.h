@@ -91,6 +91,8 @@ WLAN_STATUS
 p2pFuncTxMgmtFrame(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBssIndex, IN P_MSDU_INFO_T prMgmtTxMsdu, IN BOOLEAN
 		   fgNonCckRate);
 
+BOOLEAN isProbeResponse(IN P_MSDU_INFO_T prMgmtTxMsdu);
+
 WLAN_STATUS
 p2pFuncBeaconUpdate(IN P_ADAPTER_T prAdapter, IN P_BSS_INFO_T prP2pBssInfo, IN P_P2P_BEACON_UPDATE_INFO_T
 		    prBcnUpdateInfo, IN PUINT_8 pucNewBcnHdr, IN UINT_32 u4NewHdrLen, IN PUINT_8 pucNewBcnBody, IN

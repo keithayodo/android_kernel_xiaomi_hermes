@@ -864,6 +864,23 @@ p2pFuncTxMgmtFrame(IN P_ADAPTER_T prAdapter,
 	return rWlanStatus;
 }				/* p2pFuncTxMgmtFrame */
 
+BOOLEAN isProbeResponse(IN P_MSDU_INFO_T prMgmtTxMsdu)
+{
+	P_WLAN_MAC_HEADER_T prWlanHdr = (P_WLAN_MAC_HEADER_T) NULL;
+
+	if (!prMgmtTxMsdu || !prMgmtTxMsdu->prPacket)
+		return FALSE;
+
+	prWlanHdr = (P_WLAN_MAC_HEADER_T) ((ULONG) prMgmtTxMsdu->prPacket +
+			MAC_TX_RESERVED_FIELD);
+
+	if (!prWlanHdr)
+		return FALSE;
+
+	return (prWlanHdr->u2FrameCtrl & MASK_FRAME_TYPE) == MAC_FRAME_PROBE_RSP ?
+		TRUE : FALSE;
+}
+
 /*----------------------------------------------------------------------------*/
 /*!
 * @brief This function will start a P2P Group Owner and send Beacon Frames.

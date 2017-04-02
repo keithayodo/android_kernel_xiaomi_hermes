@@ -2018,9 +2018,13 @@ wmt_stp_wifi_lte_coex (VOID)
         /*if WMT.cfg not existed, still return success and adopt the default value*/
         return 0;
     }
-	
 	if(pWmtGenConf->coex_wmt_filter_mode == 0)
 	{
+		/*add WMT_COXE_CONFIG_EXT_COMPONENT_OPCODE command for 2G4 xLNA demand*/
+		if (pWmtGenConf->coex_wmt_ext_component) {
+			WMT_INFO_FUNC("coex_wmt_ext_component:0x%x\n", pWmtGenConf->coex_wmt_ext_component);
+			set_wifi_lte_coex_table_0[0].cmd[5] = pWmtGenConf->coex_wmt_ext_component;
+		}
 		iRet = wmt_core_init_script(set_wifi_lte_coex_table_0, ARRAY_SIZE(set_wifi_lte_coex_table_0));
 		if(iRet)
 		{

@@ -1126,7 +1126,6 @@ long WMT_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case 10:
 		{
 			wmt_lib_host_awake_get();
-			mtk_wcn_stp_coredump_start_ctrl(1);
 			osal_strcpy(pBuffer, "MT662x f/w coredump start-");
 			if (copy_from_user
 			    (pBuffer + osal_strlen(pBuffer), (void *)arg,
@@ -1172,16 +1171,21 @@ long WMT_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	case WMT_IOCTL_SET_PATCH_NUM:{
 			pAtchNum = arg;
-			WMT_INFO_FUNC(" get patch num from launcher = %d\n", pAtchNum);
-			wmt_lib_set_patch_num(pAtchNum);
-			if (pAtchNum > 0)
-				pPatchInfo = kzalloc(sizeof(WMT_PATCH_INFO) *pAtchNum, GFP_ATOMIC);
-			else
-				WMT_ERR_FUNC("patch num == 0!\n");
-			if (!pPatchInfo) {
-				WMT_ERR_FUNC("allocate memory fail!\n");
+			if (pAtchNum == 0 || pAtchNum > MAX_PATCH_NUM) {
+				WMT_ERR_FUNC("patch num(%d) == 0 or > %d!\n", pAtchNum, MAX_PATCH_NUM);
+				iRet = -1;
 				break;
 			}
+
+			pPatchInfo = kzalloc(sizeof(WMT_PATCH_INFO) * pAtchNum, GFP_ATOMIC);
+			if (!pPatchInfo) {
+				WMT_ERR_FUNC("allocate memory fail!\n");
+				iRet = -EFAULT;
+				break;
+			}
+
+			WMT_INFO_FUNC(" get patch num from launcher = %d\n", pAtchNum);
+			wmt_lib_set_patch_num(pAtchNum);
 		}
 		break;
 

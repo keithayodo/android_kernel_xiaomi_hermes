@@ -1261,6 +1261,8 @@ VOID cnmDumpStaRec(IN P_ADAPTER_T prAdapter, IN UINT_8 ucStaRecIdx);
 
 VOID cnmDumpMemoryStatus(IN P_ADAPTER_T prAdapter);
 
+VOID cnmDumpPktPool(IN P_ADAPTER_T prAdapter, IN BOOLEAN fgAll);
+
 #if CFG_SUPPORT_TDLS
 WLAN_STATUS			/* TDLS_STATUS */
 cnmPeerAdd(P_ADAPTER_T prAdapter, PVOID pvSetBuffer, UINT_32 u4SetBufferLen, PUINT_32 pu4SetInfoLen);

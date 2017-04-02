@@ -1325,6 +1325,7 @@ VOID nicRxFillRFB(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb)
 	prSwRfb->u2RxStatusOffst = u2RxStatusOffset;
 	prSwRfb->pvHeader = (PUINT_8) prRxStatus + u2RxStatusOffset + u4HeaderOffset;
 	prSwRfb->u2PacketLen = (UINT_16) (u4PktLen - (u2RxStatusOffset + u4HeaderOffset));
+	prSwRfb->u2HeaderLen = (UINT_16) HAL_RX_STATUS_GET_HEADER_LEN(prRxStatus);
 	prSwRfb->ucWlanIdx = (UINT_8) HAL_RX_STATUS_GET_WLAN_IDX(prRxStatus);
 	prSwRfb->ucStaRecIdx = secGetStaIdxByWlanIdx(prAdapter, (UINT_8) HAL_RX_STATUS_GET_WLAN_IDX(prRxStatus));
 	prSwRfb->prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
@@ -1910,6 +1911,10 @@ VOID nicRxProcessForwardPkt(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb)
 		wlanProcessTxFrame(prAdapter, (P_NATIVE_PACKET) (prSwRfb->pvPacket));
 		/* pack into MSDU_INFO_T */
 		nicTxFillMsduInfo(prAdapter, prMsduInfo, (P_NATIVE_PACKET) (prSwRfb->pvPacket));
+#if CFG_DBG_MGT_BUF
+		prMsduInfo->fgIsUsed = TRUE;
+		prMsduInfo->rLastAllocTime = kalGetTimeTick();
+#endif
 
 		prMsduInfo->eSrc = TX_PACKET_FORWARDING;
 		prMsduInfo->ucBssIndex = secGetBssIdxByWlanIdx(prAdapter, prSwRfb->ucWlanIdx);
@@ -2300,6 +2305,7 @@ VOID nicRxProcessMonitorPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwR
 *
 */
 /*----------------------------------------------------------------------------*/
+static UINT_32 u4LastRxPacketTime = 0;
 VOID nicRxProcessDataPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb)
 {
 	P_RX_CTRL_T prRxCtrl;
@@ -2349,7 +2355,7 @@ VOID nicRxProcessDataPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb)
 			}
 		} else if (HAL_RX_STATUS_IS_LLC_MIS(prRxStatus)) {
 			DBGLOG(RSN, EVENT, "LLC_MIS_ERR\n");
-			fgDrop = FALSE;	/* Drop after send de-auth  */
+			fgDrop = TRUE;	/* Drop after send de-auth  */
 		}
 	}
 
@@ -2398,11 +2404,13 @@ VOID nicRxProcessDataPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb)
 
 				switch (prRetSwRfb->eDst) {
 				case RX_PKT_DESTINATION_HOST:
-#if ARP_MONITER_ENABLE
 					prStaRec = cnmGetStaRecByIndex(prAdapter, prRetSwRfb->ucStaRecIdx);
-					if (prStaRec && IS_STA_IN_AIS(prStaRec))
+					if (prStaRec && IS_STA_IN_AIS(prStaRec)) {
+#if ARP_MONITER_ENABLE
 						qmHandleRxArpPackets(prAdapter, prRetSwRfb);
 #endif
+						u4LastRxPacketTime = kalGetTimeTick();
+					}
 					nicRxProcessPktWithoutReorder(prAdapter, prRetSwRfb);
 					break;
 
@@ -3109,8 +3117,16 @@ VOID nicRxProcessEventPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb
 
 			prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prEventBssBeaconTimeout->ucBssIndex);
 
-			if (prEventBssBeaconTimeout->ucBssIndex == prAdapter->prAisBssInfo->ucBssIndex)
+			if (prEventBssBeaconTimeout->ucBssIndex == prAdapter->prAisBssInfo->ucBssIndex) {
+				if (prEventBssBeaconTimeout->ucReasonCode == BEACON_TIMEOUT_DUE_2_NO_TX_DONE_EVENT)
+					break;
+
+				if (!CHECK_FOR_TIMEOUT(kalGetTimeTick(), u4LastRxPacketTime, SEC_TO_MSEC(2))) {
+					DBGLOG(RX, INFO, "Ignore beacon timeout\n");
+					break;
+				}
 				aisBssBeaconTimeout(prAdapter);
+			}
 #if CFG_ENABLE_WIFI_DIRECT
 			else if ((prBssInfo->eNetworkType == NETWORK_TYPE_P2P))
 				p2pRoleFsmRunEventBeaconTimeout(prAdapter, prBssInfo);
@@ -3463,6 +3479,17 @@ VOID nicRxProcessMgmtPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb)
 	ASSERT(prSwRfb);
 
 	nicRxFillRFB(prAdapter, prSwRfb);
+	if (prSwRfb->prRxStatusGroup3 == NULL) {
+		DBGLOG(RX, WARN, "rxStatusGroup3 for MGMT frame is NULL, drop this packet\n");
+		DBGLOG_MEM8(RX, WARN, (PUINT_8) prSwRfb->prRxStatus,
+			prSwRfb->prRxStatus->u2RxByteCount > 12 ? prSwRfb->prRxStatus->u2RxByteCount:12);
+		nicRxReturnRFB(prAdapter, prSwRfb);
+		RX_INC_CNT(&prAdapter->rRxCtrl, RX_DROP_TOTAL_COUNT);
+#if CFG_CHIP_RESET_SUPPORT
+		glResetTrigger(prAdapter);
+#endif
+		return;
+	}
 
 	ucSubtype = (*(PUINT_8) (prSwRfb->pvHeader) & MASK_FC_SUBTYPE) >> OFFSET_OF_FC_SUBTYPE;
 
@@ -4650,7 +4677,8 @@ WLAN_STATUS nicRxProcessActionFrame(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSw
 	prActFrame = (P_WLAN_ACTION_FRAME) prSwRfb->pvHeader;
 
 	/* DBGLOG(RSN, TRACE, ("[Rx] nicRxProcessActionFrame\n")); */
-
+	if (!prSwRfb->prStaRec)
+		nicRxMgmtNoWTBLHandling(prAdapter, prSwRfb);
 #if CFG_SUPPORT_802_11W
 	if ((prActFrame->ucCategory <= CATEGORY_PROTECTED_DUAL_OF_PUBLIC_ACTION &&
 	     prActFrame->ucCategory != CATEGORY_PUBLIC_ACTION &&
@@ -4762,4 +4790,20 @@ WLAN_STATUS nicRxProcessActionFrame(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSw
 	}			/* end of switch case */
 
 	return WLAN_STATUS_SUCCESS;
+}
+VOID nicRxMgmtNoWTBLHandling(P_ADAPTER_T prAdapter, P_SW_RFB_T prSwRfb)
+{
+	/* WTBL error handling. if no WTBL */
+	P_WLAN_MAC_MGMT_HEADER_T prMgmtHdr = (P_WLAN_MAC_MGMT_HEADER_T)prSwRfb->pvHeader;
+
+	prSwRfb->ucStaRecIdx = secLookupStaRecIndexFromTA(prAdapter, prMgmtHdr->aucSrcAddr);
+	if (prSwRfb->ucStaRecIdx >= CFG_NUM_OF_STA_RECORD)
+		return;
+	prSwRfb->prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
+
+	if (prSwRfb->prStaRec) {
+		prSwRfb->ucWlanIdx = prSwRfb->prStaRec->ucWlanIndex;
+		DBGLOG(RX, INFO, "current wlan index is %d, dump all used wtbl entry\n");
+	} else
+		DBGLOG(RX, INFO, "not find station record base on TA, dump all used wtbl entry\n");
 }

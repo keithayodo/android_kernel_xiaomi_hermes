@@ -1019,6 +1019,41 @@ VOID nicReleaseAdapterMemory(IN P_ADAPTER_T prAdapter)
 	ASSERT(prAdapter);
 	prTxCtrl = &prAdapter->rTxCtrl;
 	prRxCtrl = &prAdapter->rRxCtrl;
+#if CFG_DBG_MGT_BUF
+	do {
+		BOOLEAN fgUnfreedMem = FALSE;
+		P_BUF_INFO_T prBufInfo;
+
+		/* Dynamic allocated memory from OS */
+		if (prAdapter->u4MemFreeDynamicCount != prAdapter->u4MemAllocDynamicCount)
+			fgUnfreedMem = TRUE;
+
+		/* MSG buffer */
+		prBufInfo = &prAdapter->rMsgBufInfo;
+		if (prBufInfo->u4AllocCount != (prBufInfo->u4FreeCount + prBufInfo->u4AllocNullCount))
+			fgUnfreedMem = TRUE;
+
+		/* MGT buffer */
+		prBufInfo = &prAdapter->rMgtBufInfo;
+		if (prBufInfo->u4AllocCount != (prBufInfo->u4FreeCount + prBufInfo->u4AllocNullCount))
+			fgUnfreedMem = TRUE;
+
+		/* Check if all allocated memories are free */
+		if (fgUnfreedMem) {
+			DBGLOG(MEM, ERROR, "Unequal memory alloc/free count!\n");
+
+			qmDumpQueueStatus(prAdapter);
+			cnmDumpMemoryStatus(prAdapter);
+			cmdBufDumpCmdInfo(prAdapter, FALSE);
+			cnmDumpPktPool(prAdapter, FALSE);
+		}
+
+		if (!wlanIsChipNoAck(prAdapter)) {
+			/* Skip this ASSERT if chip is no ACK */
+			ASSERT(prAdapter->u4MemFreeDynamicCount == prAdapter->u4MemAllocDynamicCount);
+		}
+	} while (FALSE);
+#endif
 
 	/* 4 <5> Memory for enhanced interrupt response */
 	if (prAdapter->prSDIOCtrl) {
@@ -1048,40 +1083,6 @@ VOID nicReleaseAdapterMemory(IN P_ADAPTER_T prAdapter)
 		kalMemFree((PVOID) prAdapter->pucMgtBufCached, PHY_MEM_TYPE, prAdapter->u4MgtBufCachedSize);
 		prAdapter->pucMgtBufCached = (PUINT_8) NULL;
 	}
-#if CFG_DBG_MGT_BUF
-	do {
-		BOOLEAN fgUnfreedMem = FALSE;
-		P_BUF_INFO_T prBufInfo;
-
-		/* Dynamic allocated memory from OS */
-		if (prAdapter->u4MemFreeDynamicCount != prAdapter->u4MemAllocDynamicCount)
-			fgUnfreedMem = TRUE;
-
-		/* MSG buffer */
-		prBufInfo = &prAdapter->rMsgBufInfo;
-		if (prBufInfo->u4AllocCount != (prBufInfo->u4FreeCount + prBufInfo->u4AllocNullCount))
-			fgUnfreedMem = TRUE;
-
-		/* MGT buffer */
-		prBufInfo = &prAdapter->rMgtBufInfo;
-		if (prBufInfo->u4AllocCount != (prBufInfo->u4FreeCount + prBufInfo->u4AllocNullCount))
-			fgUnfreedMem = TRUE;
-
-		/* Check if all allocated memories are free */
-		if (fgUnfreedMem) {
-			DBGLOG(MEM, ERROR, "Unequal memory alloc/free count!\n");
-
-			qmDumpQueueStatus(prAdapter);
-			cnmDumpMemoryStatus(prAdapter);
-		}
-
-		if (!wlanIsChipNoAck(prAdapter)) {
-			/* Skip this ASSERT if chip is no ACK */
-			ASSERT(prAdapter->u4MemFreeDynamicCount == prAdapter->u4MemAllocDynamicCount);
-		}
-	} while (FALSE);
-#endif
-
 	return;
 }
 

@@ -708,6 +708,12 @@ VOID nicCmdEventQueryStatistics(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdI
 		prStatistics->rDecryptSuccessCount.QuadPart = 0;
 		prStatistics->rDecryptFailureCount.QuadPart = 0;
 
+		DBGLOG(REQ, STATE,
+				"Failed:%llu Retry:%llu MultipleRetry:%llu ACKFailure:%llu FCSError:%llu Tx:%llu Rx:%llu\n",
+				prStatistics->rFailedCount, prStatistics->rRetryCount,
+				prStatistics->rMultipleRetryCount, prStatistics->rACKFailureCount,
+				prStatistics->rFCSErrorCount, prStatistics->rTransmittedFragmentCount,
+				prStatistics->rReceivedFragmentCount);
 		kalOidComplete(prGlueInfo, prCmdInfo->fgSetQuery, u4QueryInfoLen, WLAN_STATUS_SUCCESS);
 	}
 }
