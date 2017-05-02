@@ -109,6 +109,11 @@ typedef struct {
 	HDMI_VIDEO_RESOLUTION output_video_resolution;
 	HDMI_AUDIO_FORMAT output_audio_format;
 	HDMI_OUTPUT_MODE output_mode;
+#ifdef CONFIG_MTK_HDMI_3D_SUPPORT
+	HDMI_VIDEO_INPUT_FORMAT		vin;
+	HDMI_VIDEO_OUTPUT_FORMAT	vout;
+#endif
+
 } _t_hdmi_context;
 
 

@@ -208,6 +208,17 @@ int disp_pwm_get_max_backlight(disp_pwm_id_t id)
 	return g_pwm_max_backlight[index];
 }
 
+#define BL_USE_LINEAR_MAPPING
+
+#define MAX_PWM			1023
+#define MAX_BRIGHTNESS		255
+#ifdef BL_USE_LINEAR_MAPPING
+#define MIN_BRIGHTNESS  	5  // [32, 255]
+#else
+#define MIN_BRIGHTNESS  	192  // [192, 255]
+#endif
+#define SPACE_BRIGHTNESS  	(MAX_BRIGHTNESS - MIN_BRIGHTNESS + 1)
+#define RATIO_BRIGHTNESS	((MAX_PWM + 1) / SPACE_BRIGHTNESS)
 
 /* For backward compatible */
 int disp_bls_set_backlight(int level_1024)
@@ -323,20 +334,22 @@ int disp_pwm_set_backlight_cmdq(disp_pwm_id_t id, int level_1024, void *cmdq)
 			disp_pwm_log(level_1024, MSG_LOG);
 		}
 
-		if (level_1024 > g_pwm_max_backlight[index])
+		if (level_1024 > g_pwm_max_backlight[index]) {
 			level_1024 = g_pwm_max_backlight[index];
-		else if (level_1024 < 0)
+		} else if (level_1024 < 0) {
 			level_1024 = 0;
+		}
 
 		level_1024 = disp_pwm_level_remap(id, level_1024);
 
 		reg_base = pwm_get_reg_base(id);
 		DISP_REG_MASK(cmdq, reg_base + DISP_PWM_CON_1_OFF, level_1024 << 16, 0x1fff << 16);
 
-		if (level_1024 > 0)
+		if (level_1024 > 0) {
 			disp_pwm_set_enabled(cmdq, id, 1);
-		else
+		} else {
 			disp_pwm_set_enabled(cmdq, id, 0);	/* To save power */
+		}
 
 		DISP_REG_MASK(cmdq, reg_base + DISP_PWM_COMMIT_OFF, 1, ~0);
 		DISP_REG_MASK(cmdq, reg_base + DISP_PWM_COMMIT_OFF, 0, ~0);

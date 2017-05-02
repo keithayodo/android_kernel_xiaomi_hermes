@@ -54,6 +54,10 @@ void dump_dbgregs(int cpuid)
 
 	struct wp_trace_context_t *wp_context;
 	int i;
+	if (!non_invasive_debug_enable()) {
+		pr_debug("[Regs_backup] WATCHPOINT DEBUG is not permitted by authentication interface of this chip\n");
+		return;
+	}
 	register_wp_context(&wp_context);
 	cs_cpu_write(wp_context->debug_regs[cpuid], EDLAR ,UNLOCK_KEY);
 	cs_cpu_write(wp_context->debug_regs[cpuid], OSLAR_EL1 ,~UNLOCK_KEY);
@@ -82,6 +86,11 @@ void dump_dbgregs(int cpuid)
 
 void print_dbgregs(int cpuid)
 {
+        if (!non_invasive_debug_enable()) {
+		pr_debug("[Regs_backup] WATCHPOINT DEBUG is not permitted by authentication interface of this chip\n");
+		return;
+	}
+
 	pr_debug("[MTK WP] cpu %d, MDSCR_EL1 0x%lx\n", cpuid, dbgregs[cpuid].MDSCR_EL1);
 	pr_debug("[MTK WP] cpu %d, DBGBVR0 0x%lx\n", cpuid, dbgregs[cpuid].DBGBVR0);
 	pr_debug("[MTK WP] cpu %d, DBGBVR1 0x%lx\n", cpuid, dbgregs[cpuid].DBGBVR1);
@@ -114,6 +123,9 @@ void print_dbgregs(int cpuid)
 unsigned int *mt_save_dbg_regs(unsigned int *p, unsigned int cpuid)
 {
 	struct wp_trace_context_t *wp_context;
+	if (!non_invasive_debug_enable())
+		return 0;
+
 	register_wp_context(&wp_context);
 	cs_cpu_write(wp_context->debug_regs[cpuid], EDLAR ,UNLOCK_KEY);
 	cs_cpu_write(wp_context->debug_regs[cpuid], OSLAR_EL1 ,~UNLOCK_KEY);
@@ -189,6 +201,9 @@ void mt_restore_dbg_regs(unsigned int *p, unsigned int cpuid)
 {
 	unsigned long dscr;
 	struct wp_trace_context_t *wp_context;
+
+	if (!non_invasive_debug_enable())
+		return;
 
 #ifdef DBG_REG_DUMP
 	pr_debug("[MTK WP] %s\n", __func__);
@@ -283,6 +298,9 @@ void mt_copy_dbg_regs(int to, int from)
 	unsigned long args;
 	struct wp_trace_context_t *wp_context;
 
+	if (!non_invasive_debug_enable())
+		return;
+
 	register_wp_context(&wp_context);
 	base_to = (unsigned long) wp_context->debug_regs[to];
 	base_from = (unsigned long)wp_context->debug_regs[from];
@@ -336,6 +354,9 @@ dbgregs_hotplug_callback(struct notifier_block *nfb, unsigned long action, void 
 	unsigned int args=0;
 	struct wp_trace_context_t *wp_context;
 	unsigned long base_to, base_from;
+
+	if (!non_invasive_debug_enable())
+		return NOTIFY_OK;
 
 	register_wp_context(&wp_context);
 	cs_cpu_write(wp_context->debug_regs[this_cpu], EDLAR ,UNLOCK_KEY);
@@ -394,9 +415,15 @@ static struct notifier_block __cpuinitdata cpu_nfb = {
 	.notifier_call = dbgregs_hotplug_callback
 };
 
+
 static int __init regs_backup(void)
 {
-	register_cpu_notifier(&cpu_nfb);
+
+        if (!non_invasive_debug_enable())
+                pr_debug("[Regs_backup]Not permitted by authentication interface of this chip\n");
+	else
+		register_cpu_notifier(&cpu_nfb);
+
 	return 0;
 }
 

@@ -187,6 +187,6 @@ int register_wp_context(struct wp_trace_context_t **wp_tracer_context );
 extern int add_hw_watchpoint(struct wp_event *wp_event);
 extern int del_hw_watchpoint(struct wp_event *wp_event);
 void __iomem* get_wp_base(void);
-
+unsigned int non_invasive_debug_enable(void);
 
 #endif  /* !__HW_BREAKPOINT_H */

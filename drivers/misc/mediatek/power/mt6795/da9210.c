@@ -240,6 +240,8 @@ int get_da9210_i2c_ch_num(void)
 int set_da9210_buck_en(int en_bit)
 {
     int ret=0;
+	kal_uint8 data = 0xff;
+	int try_count = 5;
 
     if(g_da9210_driver_ready==1)
     {

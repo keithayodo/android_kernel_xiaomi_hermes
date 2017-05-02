@@ -70,8 +70,14 @@ int MTKSysGetIRQ(void);
 //#error RGX_GPU_please_fill_the_following_defines
 #define SYS_MTK_RGX_REGS_SYS_PHYS_BASE      0x13000000
 #define SYS_MTK_RGX_REGS_SIZE               0xFFFF
-//#define SYS_MTK_RGX_IRQ                     249 // 6595
-#define SYS_MTK_RGX_IRQ                     257 // 6795
+#if defined(CONFIG_ARCH_MT6795)
+/* 6795 */
+#define SYS_MTK_RGX_IRQ                     257 
+#endif
+#if defined(CONFIG_ARCH_MT6595)
+/* 6595 */
+#define SYS_MTK_RGX_IRQ                     249
+#endif
 #endif
 
 

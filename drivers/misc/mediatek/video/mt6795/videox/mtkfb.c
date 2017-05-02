@@ -56,7 +56,6 @@
 #define ALIGN_TO(x, n)  \
 	(((x) + ((n) - 1)) & ~((n) - 1))
 
-
 extern unsigned int isAEEEnabled;
 
 struct notifier_block pm_nb;
@@ -2544,7 +2543,7 @@ void mtkfb_clear_lcm(void)
 
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
-static void mtkfb_early_suspend(struct early_suspend *h)
+void mtkfb_early_suspend(struct early_suspend *h)
 {
 	int ret = 0;
 
@@ -2579,7 +2578,7 @@ static int mtkfb_resume(struct device *pdev)
 }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
-static void mtkfb_late_resume(struct early_suspend *h)
+void mtkfb_late_resume(struct early_suspend *h)
 {
 	int ret = 0;
 

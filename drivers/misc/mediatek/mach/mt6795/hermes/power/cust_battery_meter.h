@@ -46,11 +46,7 @@
 
 /* battery meter parameter */
 #define CHANGE_TRACKING_POINT
-#ifdef CONFIG_MTK_HAFG_20
 #define CUST_TRACKING_POINT 0
-#else
-#define CUST_TRACKING_POINT 1
-#endif
 #define CUST_R_SENSE 10
 #define CUST_HW_CC 0
 #define AGING_TUNING_VALUE	103
@@ -120,4 +116,7 @@
 #define MD_SLEEP_CURRENT_CHECK	/* 5. Gauge Adjust by OCV 9. MD sleep current check */
 					/*#define Q_MAX_BY_CURRENT*//* 7. Qmax varient by current loading. */
 
-#endif				/* #ifndef _CUST_BATTERY_METER_H */
+#define USING_SMOOTH_UI_SOC2
+
+#endif	//#ifndef _CUST_BATTERY_METER_H
+

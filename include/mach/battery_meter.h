@@ -327,10 +327,15 @@ extern kal_int32 battery_meter_get_battery_nPercent_UI_SOC(void);	/* tracking po
 extern kal_int32 battery_meter_get_tempR(kal_int32 dwVolt);
 extern kal_int32 battery_meter_get_tempV(void);
 extern kal_int32 battery_meter_get_VSense(void);	/* isense voltage */
-
+extern kal_int32 battery_meter_smooth_uisoc2(void);
 extern int wakeup_fg_algo(int flow_state);
 #ifdef MTK_MULTI_BAT_PROFILE_SUPPORT
 extern int IMM_GetOneChannelValue_Cali(int Channel, int *voltage);
+#endif
+
+#if defined(SOC_BY_3RD_FG)
+extern kal_int32 battery_meter_set_3rd_fg_temp(kal_int32 val);  
+extern kal_int32 battery_meter_get_3rd_fg_soc(void);
 #endif
 
 extern void bat_update_thread_wakeup(void);
@@ -341,3 +346,4 @@ extern int IMM_GetOneChannelValue_Cali(int Channel, int *voltage);
 
 
 #endif				/* #ifndef _BATTERY_METER_H */
+

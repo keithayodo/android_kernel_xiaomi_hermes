@@ -151,7 +151,7 @@ void wp_test3(void)
 }
 #endif
 
-static unsigned int non_invasive_debug_enable(void)
+unsigned int non_invasive_debug_enable(void)
 {
 	unsigned int auth_status = 0;
 	unsigned int wp_enable = 0;
@@ -451,7 +451,10 @@ int del_hw_watchpoint(struct wp_event *wp_event)
 void set_DBGWCR(int nr_wp, int enable)
 {
 	int j;
-
+	if (!non_invasive_debug_enable()) {
+		pr_err("[MTK WP] WATCHPOINT DEBUG is not permitted by authentication interface of this chip\n");
+		return;
+	}
 	for (j = 0; j < num_possible_cpus(); j++) {
 		if (cpu_online(j))
 			cs_cpu_write(wp_tracer.debug_regs[j], DBGWCR + (nr_wp << 4),

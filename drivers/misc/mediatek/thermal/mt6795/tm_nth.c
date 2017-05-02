@@ -197,6 +197,7 @@ static ssize_t _cl_tm_nth_write(struct file *filp, const char __user *buf, size_
 	int tmp_CPU_POWER_LIMIT0, tmp_CPU_POWER_LIMIT1, tmp_CPU_POWER_LIMIT2, tmp_CPU_POWER_LIMIT3, tmp_CPU_POWER_LIMIT4, tmp_CPU_POWER_LIMIT5, tmp_CPU_POWER_LIMIT6;
 
 	/* write data to the buffer */
+	len = (len < 511) ? len : 511;
 	if ( copy_from_user(tmp, buf, len) ) {
 		return -EFAULT;
 	}

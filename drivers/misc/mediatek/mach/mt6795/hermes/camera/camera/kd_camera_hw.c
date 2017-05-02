@@ -93,7 +93,6 @@ u32 pinSet[3][8] = {
 
     if (DUAL_CAMERA_MAIN_SENSOR == SensorIdx){
         pinSetIdx = 0;
-
     }
     else if (DUAL_CAMERA_SUB_SENSOR == SensorIdx) {
         pinSetIdx = 1;
@@ -101,7 +100,6 @@ u32 pinSet[3][8] = {
     else if (DUAL_CAMERA_MAIN_2_SENSOR == SensorIdx) {
         pinSetIdx = 2;
     }
-                     
 
    
     //power ON
@@ -313,9 +311,8 @@ u32 pinSet[3][8] = {
 					goto _kdCISModulePowerOn_exit_;
 				}
 				return 0;
-			}		
-		}	
-//__empty_name			
+			}
+		}
 		if(mt_set_gpio_mode(pinSet[pinSetIdx][IDX_PS_CMRST],pinSet[pinSetIdx][IDX_PS_CMRST+IDX_PS_MODE])){PK_DBG("[CAMERA SENSOR] set gpio mode failed!! (CMRST)\n");}
 		if(mt_set_gpio_mode(pinSet[pinSetIdx][IDX_PS_CMPDN],pinSet[pinSetIdx][IDX_PS_CMPDN+IDX_PS_MODE])){PK_DBG("[CAMERA SENSOR] set gpio mode failed!!\n");}
 		

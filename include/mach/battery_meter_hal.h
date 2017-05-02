@@ -33,6 +33,11 @@ typedef enum {
 
 	BATTERY_METER_CMD_HW_RESET,	/* FGADC_Reset_SW_Parameter */
 
+#if defined(SOC_BY_3RD_FG)
+        BATTERY_METER_CMD_GET_FG_SOC,                 //3rd fuel gague used only
+        BATTERY_METER_CMD_SET_FG_TEMP,                 //3rd fuel gague used only    
+#endif
+
 	BATTERY_METER_CMD_GET_ADC_V_BAT_SENSE,
 	BATTERY_METER_CMD_GET_ADC_V_I_SENSE,
 	BATTERY_METER_CMD_GET_ADC_V_BAT_TEMP,
@@ -67,3 +72,4 @@ extern kal_int32 bm_ctrl_cmd(BATTERY_METER_CTRL_CMD cmd, void *data);
 
 
 #endif				/* #ifndef _BATTERY_METER_HAL_H */
+

@@ -1688,7 +1688,9 @@ static int _DL_switch_to_DC_fast(void)
 	if (!primary_display_is_video_mode()) {
 		/* make sure hardware is idle now */
 		/* use usleep_range(min, max) instead */
-		usleep_range(16000, 17000);
+		const unsigned int flush_data = 20;
+		const unsigned int wait_lcm_te = 20;
+		usleep_range((flush_data + wait_lcm_te) * 1000, (flush_data + wait_lcm_te + 1) * 1000);
 		/*msleep(17);*/
 		_cmdq_stop_trigger_loop();
 		_cmdq_build_trigger_loop();
@@ -2637,6 +2639,7 @@ int _esd_check_config_handle_cmd(void)
 	/* 1.reset */
 	cmdqRecReset(pgc->cmdq_handle_config_esd);
 
+	_primary_path_lock(__func__);
 	/* 2.write first instruction */
 	/* cmd mode: wait CMDQ_SYNC_TOKEN_STREAM_EOF(wait trigger thread done) */
 	cmdqRecWaitNoClear(pgc->cmdq_handle_config_esd, CMDQ_SYNC_TOKEN_STREAM_EOF);
@@ -2649,6 +2652,7 @@ int _esd_check_config_handle_cmd(void)
 
 	/* 5.set CMDQ_SYNC_TOKE_ESD_EOF(trigger thread can work now) */
 	cmdqRecSetEventToken(pgc->cmdq_handle_config_esd, CMDQ_SYNC_TOKEN_ESD_EOF);
+	_primary_path_unlock(__func__);
 
 	/* 6.flush instruction */
 	dprec_logger_start(DPREC_LOGGER_ESD_CMDQ, 0, 0);
@@ -2674,6 +2678,7 @@ int _esd_check_config_handle_vdo(void)
 	/* 1.reset */
 	cmdqRecReset(pgc->cmdq_handle_config_esd);
 
+	_primary_path_lock(__func__);
 	/* 2.stop dsi vdo mode */
 	dpmgr_path_build_cmdq(pgc->dpmgr_handle, pgc->cmdq_handle_config_esd, CMDQ_STOP_VDO_MODE, 0);
 
@@ -2685,6 +2690,7 @@ int _esd_check_config_handle_vdo(void)
 	cmdqRecClearEventToken(pgc->cmdq_handle_config_esd, CMDQ_EVENT_MUTEX0_STREAM_EOF);
 	/* 5. trigger path */
 	dpmgr_path_trigger(pgc->dpmgr_handle, pgc->cmdq_handle_config_esd, CMDQ_ENABLE);
+	_primary_path_unlock(__func__);
 
 	/* 6.flush instruction */
 	dprec_logger_start(DPREC_LOGGER_ESD_CMDQ, 0, 0);
@@ -3311,8 +3317,9 @@ static int _ovl_fence_release_callback(uint32_t userdata)
 	int i = 0;
 	unsigned int addr = 0;
 	int ret = 0;
-	MMProfileLogEx(ddp_mmp_get_events()->session_release, MMProfileFlagStart, 1, userdata);
+	static long last_error;
 
+	MMProfileLogEx(ddp_mmp_get_events()->session_release, MMProfileFlagStart, 1, userdata);
 	/*check last ovl status: should be idle when config */
 	if (primary_display_is_video_mode() && !primary_display_is_decouple_mode()) {
 		unsigned int status;
@@ -3320,7 +3327,10 @@ static int _ovl_fence_release_callback(uint32_t userdata)
 		if ((status & 0x1) != 0) {
 			/* ovl is not idle !! */
 			DISPERR("disp ovl status error!! stat=0x%x\n", status);
-			/* disp_aee_print("ovl_stat 0x%x\n", status); */
+			if ((sched_clock() - last_error) / 1000 > 5 * 60 * 1000 * 1000) {
+				disp_aee_print("ovl_stat 0x%x\n", status);
+				last_error = sched_clock();
+			}
 			MMProfileLogEx(ddp_mmp_get_events()->primary_error, MMProfileFlagPulse, status, 0);
 		}
 	}

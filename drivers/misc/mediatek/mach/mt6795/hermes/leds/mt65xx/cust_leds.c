@@ -7,6 +7,7 @@
 #include <mach/upmu_hw.h>
 
 extern int mtkfb_set_backlight_level(unsigned int level);
+extern int disp_bls_set_backlight(unsigned int level);
 
 #define BACKLIGHT_LEVEL_PWM_64_FIFO_MODE_SUPPORT 64 
 #define BACKLIGHT_LEVEL_PWM_256_SUPPORT 256 
@@ -40,7 +41,7 @@ static struct cust_mt65xx_led cust_led_list[MT65XX_LED_TYPE_TOTAL] = {
 	{"red", 		MT65XX_LED_MODE_PMIC, MT65XX_LED_PMIC_NLED_ISINK0,{0}},
 	{"green", 		MT65XX_LED_MODE_PMIC, MT65XX_LED_PMIC_NLED_ISINK1,{0}},
 	{"blue", 		MT65XX_LED_MODE_PMIC, MT65XX_LED_PMIC_NLED_ISINK2,{0}},
-        {"yellow",		MT65XX_LED_MODE_PMIC, MT65XX_LED_PMIC_NLED_ISINK2,{0}},
+    {"yellow",		MT65XX_LED_MODE_PMIC, MT65XX_LED_PMIC_NLED_ISINK2,{0}},
 	{"white", 		MT65XX_LED_MODE_PMIC, MT65XX_LED_PMIC_NLED_ISINK2,{0}},
 	{"cyan", 		MT65XX_LED_MODE_PMIC, MT65XX_LED_PMIC_NLED_ISINK2,{0}},
 	{"violet", 		MT65XX_LED_MODE_PMIC, MT65XX_LED_PMIC_NLED_ISINK2,{0}},

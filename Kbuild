@@ -1,13 +1,3 @@
-#
-# Kbuild for top-level directory of the kernel
-# This file takes care of the following:
-# 1) Generate bounds.h
-# 2) Generate asm-offsets.h (may need bounds.h)
-# 3) Check for missing system calls
-
-#####
-# 1) Generate bounds.h
-
 bounds-file := include/generated/bounds.h
 
 always  := $(bounds-file)
@@ -30,7 +20,6 @@ define cmd_bounds
 	 echo "#endif" ) > $@
 endef
 
-# We use internal kbuild rules to avoid the "is up to date" message from make
 kernel/bounds.s: kernel/bounds.c FORCE
 	$(Q)mkdir -p $(dir $@)
 	$(call if_changed_dep,cc_s_c)
@@ -39,18 +28,12 @@ $(obj)/$(bounds-file): kernel/bounds.s Kbuild
 	$(Q)mkdir -p $(dir $@)
 	$(call cmd,bounds)
 
-#####
-# 2) Generate asm-offsets.h
-#
-
 offsets-file := include/generated/asm-offsets.h
 
 always  += $(offsets-file)
 targets += $(offsets-file)
 targets += arch/$(SRCARCH)/kernel/asm-offsets.s
 
-
-# Default sed regexp - multiline due to syntax constraints
 define sed-y
 	"/^->/{s:->#\(.*\):/* \1 */:; \
 	s:^->\([^ ]*\) [\$$#]*\([-0-9]*\) \(.*\):#define \1 \2 /* \3 */:; \
@@ -75,7 +58,6 @@ define cmd_offsets
 	 echo "#endif" ) > $@
 endef
 
-# We use internal kbuild rules to avoid the "is up to date" message from make
 arch/$(SRCARCH)/kernel/asm-offsets.s: arch/$(SRCARCH)/kernel/asm-offsets.c \
                                       $(obj)/$(bounds-file) FORCE
 	$(Q)mkdir -p $(dir $@)
@@ -83,10 +65,6 @@ arch/$(SRCARCH)/kernel/asm-offsets.s: arch/$(SRCARCH)/kernel/asm-offsets.c \
 
 $(obj)/$(offsets-file): arch/$(SRCARCH)/kernel/asm-offsets.s Kbuild
 	$(call cmd,offsets)
-
-#####
-# 3) Check for missing system calls
-#
 
 always += missing-syscalls
 targets += missing-syscalls
@@ -97,5 +75,4 @@ quiet_cmd_syscalls = CALL    $<
 missing-syscalls: scripts/checksyscalls.sh $(offsets-file) FORCE
 	$(call cmd,syscalls)
 
-# Keep these two files during make clean
 no-clean-files := $(bounds-file) $(offsets-file)

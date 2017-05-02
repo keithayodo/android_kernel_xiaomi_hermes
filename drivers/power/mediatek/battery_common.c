@@ -1,25 +1,5 @@
-/*****************************************************************************
- *
- * Filename:
- * ---------
- *    battery_common.c
- *
- * Project:
- * --------
- *   Android_Software
- *
- * Description:
- * ------------
- *   This Module defines functions of mt6323 Battery charging algorithm
- *   and the Anroid Battery service for updating the battery status
- *
- * Author:
- * -------
- * Oscar Liu
- *
- ****************************************************************************/
-#include <linux/init.h>		/* For init/exit macros */
-#include <linux/module.h>	/* For MODULE_ marcros  */
+#include <linux/init.h>
+#include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/device.h>
 #include <linux/interrupt.h>
@@ -448,15 +428,17 @@ EXPORT_SYMBOL(wake_up_bat2);
 
 static ssize_t bat_log_write(struct file *filp, const char __user *buff, size_t len, loff_t *data)
 {
-	if (copy_from_user(&proc_bat_data, buff, len)) {
+	char proc_bat_data;
+
+	if ((len <= 0) || copy_from_user(&proc_bat_data, buff, 1)) {
 		battery_log(BAT_LOG_FULL, "bat_log_write error.\n");
 		return -EFAULT;
 	}
 
-	if (proc_bat_data[0] == '1') {
+	if (proc_bat_data == '1') {
 		battery_log(BAT_LOG_CRTI, "enable battery driver log system\n");
 		Enable_BATDRV_LOG = 1;
-	} else if (proc_bat_data[0] == '2') {
+	} else if (proc_bat_data == '2') {
 		battery_log(BAT_LOG_CRTI, "enable battery driver log system:2\n");
 		Enable_BATDRV_LOG = 2;
 	} else {
@@ -1482,26 +1464,6 @@ static ssize_t store_Charging_CallState(struct device *dev, struct device_attrib
 }
 
 static DEVICE_ATTR(Charging_CallState, 0664, show_Charging_CallState, store_Charging_CallState);
-
-///////////////////////////////// 
-
-static ssize_t show_ChargerEnable(struct device *dev, struct device_attribute *attr, char *buf)
-{
-	battery_log(BAT_LOG_CRTI, "ChargerEnable state = %d\n", g_charging_enable);
-	return sprintf(buf, "%u\n", g_charging_enable);
-}
-
-static ssize_t store_ChargerEnable(struct device *dev, struct device_attribute *attr,
-					const char *buf, size_t size)
-{
-	sscanf(buf, "%u", &g_charging_enable);
-	battery_log(BAT_LOG_CRTI, "ChargerEnable state = %d\n", g_charging_enable);
-	return size;
-}
-
-static DEVICE_ATTR(ChargerEnable, 0664, show_ChargerEnable, store_ChargerEnable);
-
-///////////////////////////////////
 
 static ssize_t show_Charger_Type(struct device *dev,struct device_attribute *attr,
 					char *buf)
@@ -2760,7 +2722,12 @@ static void mt_battery_charger_detect_check(void)
 		    (DISO_data.diso_state.cur_vusb_state == DISO_ONLINE)) {
 		#endif
 			mt_charger_type_detection();
-
+        
+    		if(BMT_status.charger_type == NONSTANDARD_CHARGER) {
+    			BMT_status.charger_type = CHARGER_UNKNOWN;
+    			mt_charger_type_detection();
+    		}
+		
 			if ((BMT_status.charger_type == STANDARD_HOST)
 			    || (BMT_status.charger_type == CHARGING_HOST)) {
 				mt_usb_connect();
@@ -3736,7 +3703,6 @@ static int battery_probe(struct platform_device *dev)
 		    device_create_file(&(dev->dev), &dev_attr_FG_Battery_CurrentConsumption);
 		ret_device_file = device_create_file(&(dev->dev), &dev_attr_FG_SW_CoulombCounter);
 		ret_device_file = device_create_file(&(dev->dev), &dev_attr_Charging_CallState);
-		ret_device_file = device_create_file(&(dev->dev), &dev_attr_ChargerEnable);
 		ret_device_file = device_create_file(&(dev->dev), &dev_attr_Charger_Type);
 #if defined(CONFIG_MTK_PUMP_EXPRESS_SUPPORT) || defined(CONFIG_MTK_PUMP_EXPRESS_PLUS_SUPPORT)
 		ret_device_file = device_create_file(&(dev->dev), &dev_attr_Pump_Express);
@@ -4408,3 +4374,4 @@ module_exit(battery_exit);
 MODULE_AUTHOR("Oscar Liu");
 MODULE_DESCRIPTION("Battery Device Driver");
 MODULE_LICENSE("GPL");
+

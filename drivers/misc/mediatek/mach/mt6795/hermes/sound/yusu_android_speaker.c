@@ -44,7 +44,7 @@
 ******************************************************************************
 */
 
-#define SPK_WARM_UP_TIME        (55) //unit is ms
+#define SPK_WARM_UP_TIME        (120) //unit is ms
 #define SPK_AMP_GAIN            (4)  //4:15dB
 #define RCV_AMP_GAIN            (1)  //1:-3dB
 #define SPK_R_ENABLE            (1)
@@ -103,6 +103,7 @@ void Sound_SpeakerR_SetVolLevel(int level)
 
 void Sound_Speaker_Turnon(int channel)
 {
+    int i;
     PRINTK("Sound_Speaker_Turnon channel = %d\n",channel);
     if(gsk_on)
         return;
@@ -116,7 +117,7 @@ void Sound_Speaker_Turnon(int channel)
 #elif defined(AMP_CLASS_D)
 
 #endif
-    //msleep(SPK_WARM_UP_TIME);
+    msleep(SPK_WARM_UP_TIME);
     gsk_on = true;
 }
 

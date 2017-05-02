@@ -55,13 +55,13 @@
 
 #include "disp_session.h"
 
-#include "extd_platform.h"
+#include "mt6795/extd_platform.h"
 #include "extd_hdmi.h"
 #include "extd_factory.h"
 #include "extd_log.h"
 #include "extd_utils.h"
 #include "extd_hdmi_types.h"
-#include "external_display.h"
+#include "mt6795/external_display.h"
 
 #ifdef CONFIG_MTK_SMARTBOOK_SUPPORT
 #include <linux/sbsuspend.h>
@@ -71,6 +71,10 @@
 #ifdef I2C_DBG
 #include "tmbslHdmiTx_types.h"
 #include "tmbslTDA9989_local.h"
+#endif
+
+#if 1
+#include <linux/proc_fs.h>
 #endif
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~the static variable~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
@@ -85,6 +89,7 @@ static bool otg_enable_status;
 static bool hdmi_vsync_flag;
 static wait_queue_head_t hdmi_vsync_wq;
 static unsigned long hdmi_reschange = HDMI_VIDEO_RESOLUTION_NUM;
+static unsigned long force_reschange = 0xffff;
 
 static struct switch_dev hdmi_switch_data;
 static struct switch_dev hdmires_switch_data;
@@ -95,6 +100,12 @@ static _t_hdmi_context *p = &hdmi_context;
 
 static unsigned int hdmi_layer_num;
 static unsigned long ovl_config_address[EXTD_OVERLAY_CNT];
+#ifdef CONFIG_MTK_HDMI_3D_SUPPORT
+struct task_struct *hdmi_3d_config_task = NULL;
+wait_queue_head_t hdmi_3d_config_wq;
+atomic_t hdmi_3d_config_event = ATOMIC_INIT(0);
+#endif
+
 static unsigned int hdmi_resolution_param_table[][3] = {
 	{720, 480, 60},
 	{1280, 720, 60},
@@ -193,6 +204,19 @@ void hdmi_cable_fake_plug_out(void)
 			}
 		}
 	}
+}
+
+void hdmi_force_resolution(int res)
+{
+	HDMI_LOG("hdmi_force_resolution %d\n", res);
+
+	force_reschange = res;
+#ifdef CONFIG_MTK_HDMI_3D_SUPPORT
+	if ((force_reschange > 0xff) && (force_reschange < 0x0fff))
+		hdmi_params->is_3d_support = 1;
+	else
+		hdmi_params->is_3d_support = 0;
+#endif
 }
 
 int hdmi_cable_fake_connect(int connect)
@@ -359,11 +383,32 @@ int hdmi_get_support_info(void)
 /* Configure video attribute */
 int hdmi_video_config(HDMI_VIDEO_RESOLUTION vformat, HDMI_VIDEO_INPUT_FORMAT vin, HDMI_VIDEO_OUTPUT_FORMAT vout)
 {
+#ifdef CONFIG_MTK_HDMI_3D_SUPPORT
+	if (p->is_mhl_video_on == true && (p->vout == vout))
+		return 0;
+#else
+	if (p->is_mhl_video_on == true)
+		return 0;
+#endif
+
 	if (p->is_mhl_video_on == true || first_frame_done == 0)
 		return 0;
 
 	HDMI_LOG("hdmi_video_config video_on=%d\n", p->is_mhl_video_on);
 	RETIF(IS_HDMI_NOT_ON(), 0);
+#ifdef CONFIG_MTK_HDMI_3D_SUPPORT
+	if ((p->is_mhl_video_on == true) && (p->vout != vout)) {
+
+		p->vout = vout;
+		p->vin = vin;
+		atomic_set(&hdmi_3d_config_event, 1);
+		wake_up_interruptible(&hdmi_3d_config_wq);
+		return 0;
+	}
+
+	p->vout = vout;
+	p->vin = vin;
+#endif
 
 	p->is_mhl_video_on = true;
 
@@ -444,20 +489,21 @@ static void _hdmi_rdma_irq_handler(DISP_MODULE_ENUM module, unsigned int param)
 static int hdmi_fence_release_kthread(void *data)
 {
 	struct sched_param param = {.sched_priority = RTPM_PRIO_SCRN_UPDATE };
-	sched_setscheduler(current, SCHED_RR, &param);
 	int layid = 0;
-
-
+	int layer_3d_format = 0;
 	unsigned int session_id = 0;
 	int fence_idx = 0;
 	bool ovl_reg_updated = false;
 	unsigned long input_curr_addr[EXTD_OVERLAY_CNT];
+
+	sched_setscheduler(current, SCHED_RR, &param);
 
 	for (;;) {
 		wait_event_interruptible(hdmi_fence_release_wq, atomic_read(&hdmi_fence_release_event));
 		atomic_set(&hdmi_fence_release_event, 0);
 
 		ovl_reg_updated = false;
+		layer_3d_format = 0;
 		session_id = ext_disp_get_sess_id();
 		fence_idx = -1;
 
@@ -488,6 +534,11 @@ static int hdmi_fence_release_kthread(void *data)
 				else
 					fence_idx = disp_sync_find_fence_idx_by_addr(session_id,
 										layid, input_curr_addr[layid]);
+#ifdef CONFIG_MTK_HDMI_3D_SUPPORT
+				if (hdmi_params->is_3d_support)
+					layer_3d_format |= mtkfb_query_buf_info(session_id, layid,
+										input_curr_addr[layid], 0);
+#endif
 
 				mtkfb_release_fence(session_id, layid, fence_idx);
 			}
@@ -500,8 +551,22 @@ static int hdmi_fence_release_kthread(void *data)
 			MMProfileLogEx(ddp_mmp_get_events()->Extd_UsedBuff,
 					MMProfileFlagPulse, input_curr_addr[0], input_curr_addr[1]);
 		}
+#ifdef CONFIG_MTK_HDMI_3D_SUPPORT
+			if ((force_reschange > 0xff) && (force_reschange < 0x0fff))
+				layer_3d_format = force_reschange >> 8;
 
+			if (layer_3d_format >= DISP_LAYER_3D_TAB_0)
+				layer_3d_format = HDMI_VOUT_FORMAT_3D_TAB;
+			else if (layer_3d_format >= DISP_LAYER_3D_SBS_0)
+				layer_3d_format = HDMI_VOUT_FORMAT_3D_SBS;
+			else
+				layer_3d_format = HDMI_VOUT_FORMAT_2D;
+
+			hdmi_video_config(p->output_video_resolution, HDMI_VIN_FORMAT_RGB888,
+						HDMI_VOUT_FORMAT_RGB888|layer_3d_format);
+#else
 		hdmi_video_config(p->output_video_resolution, HDMI_VIN_FORMAT_RGB888, HDMI_VOUT_FORMAT_RGB888);
+#endif
 
 		if (kthread_should_stop())
 			break;
@@ -509,6 +574,31 @@ static int hdmi_fence_release_kthread(void *data)
 
 	return 0;
 }
+
+#ifdef CONFIG_MTK_HDMI_3D_SUPPORT
+static int hdmi_3d_config_kthread(void *data)
+{
+	struct sched_param param = { .sched_priority = RTPM_PRIO_SCRN_UPDATE };
+	HDMI_VIDEO_RESOLUTION vformat = HDMI_VIDEO_RESOLUTION_NUM;
+
+	sched_setscheduler(current, SCHED_RR, &param);
+
+	for (;;) {
+		wait_event_interruptible(hdmi_3d_config_wq, atomic_read(&hdmi_3d_config_event));
+		atomic_set(&hdmi_3d_config_event, 0);
+
+		HDMI_LOG("video_on=%d fps %d, %d\n", p->is_mhl_video_on, p->vin , p->vout);
+
+		if (p->vout >= HDMI_VOUT_FORMAT_2D)
+			hdmi_drv->video_config(vformat, p->vin, p->vout);
+
+		if (kthread_should_stop())
+			break;
+	}
+
+	return 0;
+}
+#endif
 
 /* Allocate memory, set M4U, LCD, MDP, DPI */
 /* LCD overlay to memory -> MDP resize and rotate to memory -> DPI read to HDMI */
@@ -535,6 +625,13 @@ static HDMI_STATUS hdmi_drv_init(void)
 							NULL, "hdmi_fence_release_kthread");
 		wake_up_process(hdmi_fence_release_task);
 	}
+
+#ifdef CONFIG_MTK_HDMI_3D_SUPPORT
+	if (!hdmi_3d_config_task) {
+		hdmi_3d_config_task = kthread_create(hdmi_3d_config_kthread, NULL, "hdmi_3d_config_kthread");
+		wake_up_process(hdmi_3d_config_task);
+	}
+#endif
 
 	return HDMI_STATUS_OK;
 }
@@ -1005,6 +1102,7 @@ int hdmi_get_dev_info(int is_sf, void *info)
 {
 	int ret = 0;
 
+
 	if (is_sf == AP_GET_INFO) {
 		int displayid = 0;
 		mtk_dispif_info_t hdmi_info;
@@ -1055,6 +1153,9 @@ int hdmi_get_dev_info(int is_sf, void *info)
 	} else if (is_sf == SF_GET_INFO) {
 		disp_session_info *dispif_info = (disp_session_info *) info;
 		memset((void *)dispif_info, 0, sizeof(disp_session_info));
+#ifdef CONFIG_MTK_HDMI_3D_SUPPORT
+		dispif_info->is3DSupport = hdmi_params->is_3d_support;
+#endif
 
 		dispif_info->isOVLDisabled = (hdmi_layer_num == 1) ? 1 : 0;
 /* if(ext_disp_path_get_mode() == EXTD_RDMA_DPI_MODE) */
@@ -1245,12 +1346,66 @@ void hdmi_init(void)
 	init_waitqueue_head(&hdmi_fence_release_wq);
 	init_waitqueue_head(&hdmi_vsync_wq);
 
+#ifdef CONFIG_MTK_HDMI_3D_SUPPORT
+	init_waitqueue_head(&hdmi_3d_config_wq);
+#endif
+
 	Extd_DBG_Init();
 }
 #endif
 
+#if 1
+struct proc_file{                                                                                                                                 
+    struct file_operations fop;
+    unsigned int mode;
+    char *name; 
+};
+
+#define procify(propname) (&proc_##propname)
+
+#define __PROC_FILE(_name, _mode, _read, _write) {\
+    .name = __stringify(_name),\
+    .fop = {.read =_read, .write = _write},\
+    .mode = _mode,\
+}
+
+#define PROC_FILE(_name, _mode, _read, _write) struct proc_file proc_##_name = __PROC_FILE(_name, _mode, _read, _write)
+
+static int mhl_ic_exist_show_proc(struct file *file, char __user *page, size_t count, loff_t *ppos)
+{
+	unsigned char pin = 0;
+    char *ptr = page;
+    
+    if (*ppos)  // CMD call again
+    {
+        return 0;
+    }
+
+	mt_set_gpio_mode(GPIO52|0x80000000, GPIO_MODE_00);
+	mt_set_gpio_dir(GPIO52|0x80000000, GPIO_DIR_IN);
+	mt_set_gpio_pull_enable(GPIO52|0x80000000, GPIO_PULL_DISABLE);
+	//mt_set_gpio_pull_select(GPIO_CTP_EINT_PIN, GPIO_PULL_UP);
+
+	if(!mt_get_gpio_in(GPIO52|0x80000000))
+		ptr += snprintf(page, PAGE_SIZE, "OK\n");
+	else
+		ptr += snprintf(page, PAGE_SIZE, "NO\n");
+	//ptr += snprintf(page, PAGE_SIZE, "%d\n",mt_get_gpio_in(GPIO52|0x80000000));
+
+	*ppos += ptr - page;
+	return (ptr - page);
+}
+
+static PROC_FILE(sii8348_status, S_IRUGO , mhl_ic_exist_show_proc, NULL);
+
+static struct proc_file *sproc_file[] = {
+	procify(sii8348_status),
+};
+#endif
+
 const EXTD_DRIVER *EXTD_HDMI_Driver(void)
 {
+#if 0
 	static const EXTD_DRIVER extd_driver_hdmi = {
 #if defined(CONFIG_MTK_HDMI_SUPPORT)
 		.init =              hdmi_init,
@@ -1270,7 +1425,54 @@ const EXTD_DRIVER *EXTD_HDMI_Driver(void)
 #else
 		.init = 0,
 #endif
-	};
 
+	};
+#else
+	static EXTD_DRIVER extd_driver_hdmi = {
+		.init = 0,
+	};
+	unsigned char mhl_pin = 0; //default 0 : mhl ic exist
+	struct proc_dir_entry *mhl_ic_proc = NULL;
+	static char has_init=0;
+
+    if(has_init)
+		return &extd_driver_hdmi;
+	
+    mhl_ic_proc = proc_create(sproc_file[0]->name, 
+            sproc_file[0]->mode, NULL, &(sproc_file[0]->fop));
+    if(!mhl_ic_proc)
+    {
+		printk("hdmi_init: create proc file fail !\n");
+    }
+		
+	mt_set_gpio_mode(GPIO52|0x80000000, GPIO_MODE_00);
+	mt_set_gpio_dir(GPIO52|0x80000000, GPIO_DIR_IN);
+	mt_set_gpio_pull_enable(GPIO52|0x80000000, GPIO_PULL_DISABLE);
+	//mt_set_gpio_pull_select(GPIO_CTP_EINT_PIN, GPIO_PULL_UP);
+	
+    mhl_pin = mt_get_gpio_in(GPIO52|0x80000000);
+	if(mhl_pin){
+		printk("hdmi_init: mhl ic not exist, mhl pin=%d\n",mhl_pin);
+	}else{
+		extd_driver_hdmi.init =              hdmi_init,
+		extd_driver_hdmi.deinit =            NULL,
+		extd_driver_hdmi.enable =            hdmi_enable,
+		extd_driver_hdmi.power_enable =      hdmi_power_enable,
+		extd_driver_hdmi.set_audio_enable =  hdmi_set_audio_enable,
+		extd_driver_hdmi.set_audio_format =  hdmi_audio_config,
+		extd_driver_hdmi.set_resolution =    hdmi_set_resolution,
+		extd_driver_hdmi.get_dev_info =      hdmi_get_dev_info,
+		extd_driver_hdmi.get_capability =    hdmi_get_capability,
+		extd_driver_hdmi.get_edid =          hdmi_get_edid,
+		extd_driver_hdmi.wait_vsync =        hdmi_waitVsync,
+		extd_driver_hdmi.fake_connect =      hdmi_cable_fake_connect,
+		extd_driver_hdmi.factory_mode_test = NULL,
+		extd_driver_hdmi.ioctl =             hdmi_ioctl,
+		printk("hdmi_init: mhl ic exist, mhl pin=%d\n",mhl_pin);
+	}
+
+	has_init++;
+#endif
+   
 	return &extd_driver_hdmi;
 }

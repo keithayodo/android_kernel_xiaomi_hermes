@@ -7,8 +7,8 @@ obj-y   += dct/dct/
 endif
 
 obj-y   +=  camera/camera/
-obj-$(CONFIG_MTK_VIBRATOR)   +=  vibrator/
-obj-$(CONFIG_MTK_LEDS)   +=  leds/
+obj-y   +=  vibrator/
+obj-y   +=  leds/
 obj-y   +=  keypad/
 obj-y   +=  sound/
 obj-y   +=  accdet/

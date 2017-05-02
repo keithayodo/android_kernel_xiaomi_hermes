@@ -49,7 +49,6 @@
  *                E X T E R N A L   R E F E R E N C E S
  *****************************************************************************/
 #include "AudDrv_NXP.h"
-
 #define TFA_I2C_CHANNEL     (3)
 
 #ifdef CONFIG_MTK_NXP_TFA9890

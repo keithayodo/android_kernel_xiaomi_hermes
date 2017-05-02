@@ -39,5 +39,7 @@ bool          bIsSupportSR;
 
 #define LC898122AFIOC_T_SETMACROPOS _IOW(LC898122AF_MAGIC,3, u32)
 
+#define LC898122AFIOC_T_SETPARA _IOW(LC898122AF_MAGIC,5, u32)
+
 #else
 #endif

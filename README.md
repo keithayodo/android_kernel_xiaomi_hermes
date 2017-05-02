@@ -1,3 +1,4 @@
+# Unofficial
 # Kernel sources for Xiaomi Redmi Note 2 (Hermes)
 # Kernel version 3.10.72
 
@@ -5,47 +6,46 @@
 
 ## Works:
 
-	* LCM (NT35596_TIANMA, NT35596_AUO, NT35532_BOE)
-	* Touch (ATMEL, FT5206)
-	* CW2015
-	* Sdcard
 	* Wi-Fi
-	* BT
+	* Bluetooth
 	* GPS
-	* Buttons backlight
-	* Brightness
+	* Sdcard
+	* Sim Cards
+	* Screen
+	* Camera
+	* Flashlight
+	* Touchscreen
+	* Battery HW driver
 	* Notification led
-	* Ril (both)
-	* Alsps (LT559, STK)
-	* Accelerator (BMI160_ACC, LSM6DS3_ACCEL)
+	* Accelerator
 	* Gyroscope
 	* OTG
-	* Sound (Speaker, Headphones)
+	* Sound
 	* Vibrator
-	* Battery
-	* Flashlight
-	* Camera(s5k3m2, OV5670)
-	* Lens(DF9761BAF)
+
+## Working for some:
+
+	* Proximitry and light sensor
 
 ## Don't work:
 
 	* IR Blaster
-	* Magnetometer (YAS537, AKM09911_NEW)
+	* Magnetometer
 
-## Bugs:
+## Hardware:
 
-	* Bad audio quality
-	* Kernel show bad temperature
+	* Alsps - LT559 and STK
+	* Mag - YAS537 and AKM09911_NEW
+	* Accel - BMI160 and LSM6DS
+	* Touch - Atmel and Focaltech FT5206
+	* Camera - s5k3m2 and OV5670
+	* Lens - DF9761BAF
+	* LCM - NT35596_TIANMA, NT35596_AUO and NT35532_BOE
 
-# Other repos
-
-[Device tree](https://github.com/HermesRepos/android_device_xiaomi_hermes/tree/cm-13.0)
-
-[Vendor](https://github.com/HermesRepos/android_vendor_xiaomi_hermes/tree/cm-13.0)
-
-# Authors
+# Thanks to:
 
 	* nofearnohappy
 	* LazyC0DEr
 	* Anomalchik
 	* Dinolek
+

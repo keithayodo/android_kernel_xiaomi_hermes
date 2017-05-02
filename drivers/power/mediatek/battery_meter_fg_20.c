@@ -69,9 +69,7 @@ int Enable_FGADC_LOG = 1;
 /* global variable */
 /* ============================================================ // */
 BATTERY_METER_CONTROL battery_meter_ctrl = NULL;
-
-/* static struct proc_dir_entry *proc_entry_fgadc; */
-static char proc_fgadc_data[32];
+int battery_meter_inited = 0;
 
 kal_bool gFG_Is_Charging = KAL_FALSE;
 kal_bool gFG_Is_Charging_init = KAL_FALSE;
@@ -176,6 +174,12 @@ kal_int32 gFG_hwocv = 0;
 kal_int32 gFG_vbat_soc = 0;
 kal_int32 gFG_hw_soc = 0;
 kal_int32 gFG_sw_soc = 0;
+#ifdef USING_SMOOTH_UI_SOC2
+kal_int32 temp_UI_SOC2 = -1;
+kal_int32 pre_UI_SOC2 = 0;
+kal_int32 UI_SOC3 = 0;
+kal_int32 pre_cc_act = 0;
+#endif
 
 /* voltage mode */
 kal_int32 gfg_percent_check_point = 50;
@@ -397,6 +401,8 @@ struct battery_meter_table_custom_data {
 	R_PROFILE_STRUC r_profile_temperature[100];
 };
 
+PMU_BatteryidStruct BatteryId_status;
+extern int PMIC_IMM_GetOneChannelValue(upmu_adc_chl_list_enum dwChannel, int deCount, int trimd);
 struct battery_meter_custom_data batt_meter_cust_data;
 struct battery_meter_table_custom_data batt_meter_table_cust_data;
 
@@ -406,6 +412,7 @@ struct battery_meter_table_custom_data batt_meter_table_cust_data;
 kal_bool gFG_Is_offset_init = KAL_FALSE;
 
 #ifdef CONFIG_MTK_MULTI_BAT_PROFILE_SUPPORT
+extern int IMM_GetOneChannelValue_Cali(int Channel, int *voltage);
 kal_uint32 g_fg_battery_id = 0;
 
 #ifdef MTK_GET_BATTERY_ID_BY_AUXADC
@@ -415,7 +422,9 @@ void fgauge_get_profile_id(void)
 	int id = 0;
 	int ret = 0;
 
-	ret = IMM_GetOneChannelValue_Cali(BATTERY_ID_CHANNEL_NUM, &id_volt);
+	//ret = IMM_GetOneChannelValue_Cali(BATTERY_ID_CHANNEL_NUM, &id_volt);
+	id_volt = PMIC_IMM_GetOneChannelValue(AUX_ADCVIN0_AP, 1, 0);  /*[---Modify Rachel, support 2nd battery,20141208---]*/
+
 	if (ret != 0)
 		bm_print(BM_LOG_CRTI, "[fgauge_get_profile_id]id_volt read fail\n");
 	else
@@ -434,6 +443,10 @@ void fgauge_get_profile_id(void)
 			g_fg_battery_id = TOTAL_BATTERY_NUMBER - 1;
 		}
 	}
+	
+	BatteryId_status.adcChannel = BATTERY_ID_CHANNEL_NUM;
+	BatteryId_status.adcChannelVol = id_volt;
+	BatteryId_status.batteryId = g_fg_battery_id;
 
 	bm_print(BM_LOG_CRTI, "[fgauge_get_profile_id]Battery id (%d)\n", g_fg_battery_id);
 }
@@ -1109,8 +1122,12 @@ int __batt_meter_init_cust_data_from_dt(struct platform_device *dev)
 
 
 	batt_meter_cust_data.batterypseudo100 = BATTERYPSEUDO100;
-	batt_meter_cust_data.batterypseudo1 = BATTERYPSEUDO1;
 
+#ifdef CONFIG_MTK_MULTI_BAT_PROFILE_SUPPORT
+	batt_meter_cust_data.batterypseudo1 = g_BATTERYPSEUDO1[g_fg_battery_id];
+#else
+	batt_meter_cust_data.batterypseudo1 = BATTERYPSEUDO1;
+#endif
 
 	if (of_property_read_u32(np, "vbat_normal_wakeup", &val)) {
 		batt_meter_cust_data.vbat_normal_wakeup = (int)val;
@@ -2042,8 +2059,11 @@ kal_int32 battery_meter_get_charger_voltage(void)
 	int val = 0;
 
 	val = 5;		/* set avg times */
-	ret = battery_meter_ctrl(BATTERY_METER_CMD_GET_ADC_V_CHARGER, &val);
 
+	if(battery_meter_ctrl)
+	ret = battery_meter_ctrl(BATTERY_METER_CMD_GET_ADC_V_CHARGER, &val);
+    else
+	printk("error: battery meter has not init!\n");
 	/* val = (((R_CHARGER_1+R_CHARGER_2)*100*val)/R_CHARGER_2)/100; */
 	return val;
 }
@@ -2071,6 +2091,11 @@ kal_int32 battery_meter_initial(void)
 
 	mutex_lock(&FGADC_mutex);
 	if (meter_initilized == KAL_FALSE) {
+
+#ifdef CONFIG_MTK_MULTI_BAT_PROFILE_SUPPORT
+		fgauge_get_profile_id();
+#endif
+
 #if defined(SOC_BY_HW_FG)
 		/* 1. HW initialization */
 		battery_meter_ctrl(BATTERY_METER_CMD_HW_FG_INIT, NULL);
@@ -2165,19 +2190,79 @@ kal_int32 battery_meter_get_VSense(void)
 #endif
 }
 
+#ifdef USING_SMOOTH_UI_SOC2
+kal_int32 battery_meter_smooth_uisoc2(void)
+{
+	static int init_flag = -1;
+	kal_int32 smooth_cc = 0;
+	kal_int32 cc_act = 0;
+	kal_int32 cc_act_delta = 0;
+
+	if (temp_UI_SOC2 == -1) {
+		return;
+	}
+
+	if (init_flag == -1) {
+		UI_SOC3 = temp_UI_SOC2;
+		pre_UI_SOC2 = temp_UI_SOC2;
+		init_flag= 1;
+	}
+	battery_meter_ctrl(BATTERY_METER_CMD_GET_HW_FG_CAR_ACT, &cc_act);
+
+	if (gFG_coulomb_is_charging == 1) {
+		// charging
+		cc_act_delta = abs(cc_act - pre_cc_act);
+		smooth_cc = (100 - temp_UI_SOC2) * gFG_BATT_CAPACITY_aging / (100 - UI_SOC3) /100 * 6;
+		if ((cc_act_delta > smooth_cc) && UI_SOC3 < 100) {
+			UI_SOC3++;
+			pre_cc_act = cc_act;
+			bm_print(BM_LOG_CRTI, "smooth_UISOC2-###+++UI_SOC3=%d\n", UI_SOC3);
+		}
+	} else {
+		// discharging
+		// reset pre_cc_act if UI_SOC2 changed
+		if (temp_UI_SOC2 != pre_UI_SOC2) {
+			pre_UI_SOC2 = temp_UI_SOC2;
+			pre_cc_act = cc_act;
+		}
+		// get delta coulomb count every persent
+		cc_act_delta = abs(cc_act - pre_cc_act);
+		smooth_cc = temp_UI_SOC2 * gFG_BATT_CAPACITY_aging / UI_SOC3 /100 * 15;
+		if ((cc_act_delta > smooth_cc) && UI_SOC3 > 0) {
+			UI_SOC3--;
+			pre_cc_act = cc_act;
+			bm_print(BM_LOG_CRTI, "smooth_UISOC2-###---UI_SOC3=%d\n", UI_SOC3);
+		}
+	}
+	// using UI_SOC2 when it not keeping,full,shutdown case
+	if ((UI_SOC3 >= temp_UI_SOC2) || (BMT_status.bat_full == true) || (temp_UI_SOC2 == 1)) {
+		UI_SOC3 = temp_UI_SOC2;
+	}
+
+	BMT_status.UI_SOC2 = UI_SOC3;
+	
+	bm_print(BM_LOG_CRTI, "smooth_UISOC2-@@@@@@@%d,%d,%d,%d,%d,%d,%d,%d\n",
+		gFG_coulomb_is_charging, temp_UI_SOC2, UI_SOC3, smooth_cc, 
+		cc_act_delta, pre_cc_act, cc_act, gFG_BATT_CAPACITY_aging);
+	return 0;
+}
+#endif
+
 /* ============================================================ // */
 static ssize_t fgadc_log_write(struct file *filp, const char __user *buff,
 			       size_t len, loff_t *data)
 {
-	if (copy_from_user(&proc_fgadc_data, buff, len)) {
+	char proc_fgadc_data;
+
+	if ((len <= 0) || copy_from_user(&proc_fgadc_data, buff, 1)) {
 		bm_print(BM_LOG_CRTI, "fgadc_log_write error.\n");
 		return -EFAULT;
 	}
 
-	if (proc_fgadc_data[0] == '1') {
+	if (proc_fgadc_data == '1') {
 		bm_print(BM_LOG_CRTI, "enable FGADC driver log system\n");
 		Enable_FGADC_LOG = 1;
-	} else if (proc_fgadc_data[0] == '2') {
+	} else if (proc_fgadc_data == '2') {
 		bm_print(BM_LOG_CRTI, "enable FGADC driver log system:2\n");
 		Enable_FGADC_LOG = 2;
 	} else {
@@ -3106,6 +3191,7 @@ static int battery_meter_probe(struct platform_device *dev)
 	bm_print(BM_LOG_CRTI, "[battery_meter_probe] probe\n");
 	/* select battery meter control method */
 	battery_meter_ctrl = bm_ctrl_cmd;
+	battery_meter_inited=1;
 #if defined(CONFIG_MTK_KERNEL_POWER_OFF_CHARGING)
 	if (g_boot_mode == LOW_POWER_OFF_CHARGING_BOOT
 	    || g_boot_mode == KERNEL_POWER_OFF_CHARGING_BOOT) {
@@ -3528,6 +3614,9 @@ void bmd_ctrl_cmd_from_user(void *nl_data, struct fgd_nl_msg_t *ret_msg)
 	case FG_DAEMON_CMD_FGADC_RESET:
 		bm_print(BM_LOG_FULL, "[fg_res] fgadc_reset\n");
 		battery_meter_ctrl(BATTERY_METER_CMD_HW_RESET, NULL);
+			#ifdef USING_SMOOTH_UI_SOC2
+			pre_cc_act = 0;
+			#endif
 		break;
 
 	case FG_DAEMON_CMD_GET_BATTERY_PLUG_STATUS:
@@ -3876,6 +3965,7 @@ void bmd_ctrl_cmd_from_user(void *nl_data, struct fgd_nl_msg_t *ret_msg)
 		{
 
 			bm_print(BM_LOG_FULL, "[fg_res] FG_DAEMON_CMD_SET_POWEROFF\n");
+			if(BMT_status.bat_vol < SHUTDOWN_SYSTEM_VOLTAGE)
 			kernel_power_off();
 		}
 		break;
@@ -3918,7 +4008,11 @@ void bmd_ctrl_cmd_from_user(void *nl_data, struct fgd_nl_msg_t *ret_msg)
 			INT32 UI_SOC;
 			memcpy(&UI_SOC, &msg->fgd_data[0], sizeof(UI_SOC));
 			bm_print(BM_LOG_FULL, "[fg_res] UI_SOC2 = %d\n", UI_SOC);
+			#ifdef USING_SMOOTH_UI_SOC2
+			temp_UI_SOC2 = UI_SOC;
+			#else
 			BMT_status.UI_SOC2 = UI_SOC;
+			#endif
 			if (!g_battery_soc_ready) {
 				g_battery_soc_ready = KAL_TRUE;
 				gfg_percent_check_point = UI_SOC;

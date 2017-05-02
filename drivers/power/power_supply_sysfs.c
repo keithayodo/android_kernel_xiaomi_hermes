@@ -33,7 +33,7 @@
 
 #define POWER_SUPPLY_ATTR(_name)					\
 {									\
-	.attr = { .name = #_name },					\
+	.attr = { .name = #_name, .mode=0664, },					\
 	.show = power_supply_show_property,				\
 	.store = power_supply_store_property,				\
 }
@@ -203,6 +203,7 @@ static struct device_attribute power_supply_attrs[] = {
 	/* 20100723 James Lo */
 	POWER_SUPPLY_ATTR(batt_vol),
 	POWER_SUPPLY_ATTR(batt_temp),
+	POWER_SUPPLY_ATTR(Usb_Charging_Current),
 	/* 20100405 Add for EM */
 	POWER_SUPPLY_ATTR(TemperatureR),
 	POWER_SUPPLY_ATTR(TempBattVoltage),
@@ -217,6 +218,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(present_smb),
 	/* ADB CMD Discharging */
 	POWER_SUPPLY_ATTR(adjust_power),
+	POWER_SUPPLY_ATTR(disable_quick_charge),
 	/* Properties of type `const char *' */
 	POWER_SUPPLY_ATTR(model_name),
 	POWER_SUPPLY_ATTR(manufacturer),

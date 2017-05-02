@@ -53,9 +53,6 @@
 #define AKM09911_RETRY_COUNT	10
 #define AKM09911_DEFAULT_DELAY	100
 
-//PIN 12
-#define MAG_PIN            GPIO_MSE_EINT_PIN
-
 #define POWER_NONE_MACRO MT65XX_POWER_NONE
 
 /**************************

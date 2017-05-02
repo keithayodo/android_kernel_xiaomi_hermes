@@ -90,7 +90,10 @@ void mt_power_off(void)
 	printk("mt_power_off\n");
 
 	/* pull PWRBB low */
-	rtc_bbpu_power_down();
+	if (pmic_chrdet_status() == KAL_TRUE)
+		arch_reset(0, "kpoc");
+	else
+		rtc_bbpu_power_down();
 
 	while (1) {
 #if defined(CONFIG_POWER_EXT)
@@ -101,7 +104,7 @@ void mt_power_off(void)
 		mdelay(100);	
 		printk("Phone with charger\n");
 		if (pmic_chrdet_status() == KAL_TRUE || count > 10)
-			arch_reset(0, "charger");
+			arch_reset(0, "kpoc");
 
 		count++;
 #endif

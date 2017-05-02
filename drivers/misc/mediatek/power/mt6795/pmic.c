@@ -495,7 +495,7 @@ extern kal_uint32 bat_get_ui_percentage(void);
 int g_battery_percent_level=0;
 int g_battery_percent_stop=0;
 
-#define BAT_PERCENT_LINIT 15
+#define BAT_PERCENT_LINIT 20
 
 struct battery_percent_callback_table
 {
@@ -845,6 +845,10 @@ void chrdet_int_handler(void)
 			PMICLOG("[chrdet_int_handler] Unplug Charger/USB In Kernel Power Off Charging Mode!  Shutdown OS!\r\n");
             mt_power_off();
         }
+    }else if(g_battery_percent_level ==1) //if it was low percent protection
+    {
+        g_battery_percent_level = 0;
+        exec_battery_percent_callback(BATTERY_PERCENT_LEVEL_0); //release low protection
     }
     #else
     upmu_get_rgs_chrdet();

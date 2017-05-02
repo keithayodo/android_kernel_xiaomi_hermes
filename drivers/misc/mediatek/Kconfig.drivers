@@ -387,7 +387,7 @@ config MTK_HAFG_20
 
 config MTK_MULTI_BAT_PROFILE_SUPPORT
 	bool "MediaTek Fuel Gauge 2.0 support multiple battery profile"
-	default n
+	default y
 	help
 	  MediaTek Feul Gauge 2.0 can support multiple battery profile.
 	  It support up to 4 battery profiles. When system on, it can
@@ -1148,6 +1148,11 @@ config MTK_EXTMEM
 	   bool "mtk external memory"
 	   depends on MTK_INTERNAL
 	   default n
+
+#CPU low power refine
+config CPU_LOW_POWER
+	bool "MTK CPU_LOW_POWER_SUPPORT"
+	default y
 	  
 config MTK_INHOUSE_GPU
 	bool "MTK_INHOUSE_GPU"
@@ -1162,9 +1167,8 @@ config SW_SYNC64
 	  A sync object driver that uses a 64bit counter to coordinate
 	  syncrhronization.  Useful when there is no hardware primitive backing
 	  the synchronization.
-#--------------------------RGK driver cfg add (start)------------------------------	  
+
 config RGK_DRIVER_FG_CW2015
         bool "RGK for cw2015 charger ic"
         default n
-#--------------------------RGK driver cfg add (end)------------------------------
 

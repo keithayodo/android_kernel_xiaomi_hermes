@@ -338,7 +338,6 @@ static int bmp_set_powermode(struct i2c_client *client, enum BMP_POWERMODE_ENUM 
 
 	if (power_mode == obj->power_mode)
 		return 0;
-	mutex_lock(&bmp180_op_mutex);
 
 	if (obj->sensor_type == BMP180_TYPE) {/* BMP180 */
 		/* BMP180 only support forced mode */
@@ -351,7 +350,6 @@ static int bmp_set_powermode(struct i2c_client *client, enum BMP_POWERMODE_ENUM 
 			err, obj->sensor_name);
 	else
 		obj->power_mode = power_mode;
-	mutex_unlock(&bmp180_op_mutex);
 
 	return err;
 }
@@ -1101,11 +1099,9 @@ static int bmp_suspend(struct i2c_client *client, pm_message_t msg)
 	struct bmp_i2c_data *obj = i2c_get_clientdata(client);
 	int err = 0;
 	BAR_FUN();
-	mutex_lock(&bmp180_op_mutex);
 	if (msg.event == PM_EVENT_SUSPEND) {
 		if (NULL == obj) {
 			BAR_ERR("null pointer\n");
-			mutex_unlock(&bmp180_op_mutex);
 			return -EINVAL;
 		}
 
@@ -1113,12 +1109,10 @@ static int bmp_suspend(struct i2c_client *client, pm_message_t msg)
 		err = bmp_set_powermode(obj->client, BMP_SUSPEND_MODE);
 		if (err) {
 			BAR_ERR("bmp set suspend mode failed, err = %d\n", err);
-			mutex_unlock(&bmp180_op_mutex);
 			return err;
 		}
 		bmp_power(obj->hw, 0);
 	}
-	mutex_unlock(&bmp180_op_mutex);
 	return err;
 }
 

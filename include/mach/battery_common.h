@@ -112,23 +112,38 @@ typedef enum {
 	TEMP_BELOW_NEG_10 = 0,
 	TEMP_NEG_10_TO_POS_0,
 	TEMP_POS_0_TO_POS_10,
+	TEMP_POS_10_TO_POS_30,
 	TEMP_POS_10_TO_POS_45,
+	TEMP_POS_30_TO_POS_45,
 	TEMP_POS_45_TO_POS_60,
 	TEMP_ABOVE_POS_60
 } temp_state_enum;
 
+typedef enum {
+	TEMP_BELOW_0 = 0,
+	TEMP_POS_0_TO_POS_15,
+	TEMP_POS_15_TO_POS_45,
+	TEMP_POS_45_TO_POS_50,
+	TEMP_ABOVE_POS_50
+} Max_charger_temp_state_enum;
 
 #define TEMP_POS_60_THRESHOLD  50
-#define TEMP_POS_60_THRES_MINUS_X_DEGREE 47
+#define TEMP_POS_60_THRES_MINUS_X_DEGREE 48
 
 #define TEMP_POS_45_THRESHOLD  45
-#define TEMP_POS_45_THRES_MINUS_X_DEGREE 39
+#define TEMP_POS_45_THRES_MINUS_X_DEGREE 28
 
+#define TEMP_POS_30_THRESHOLD  35
+#define TEMP_POS_30_THRES_MINUS_X_DEGREE 43
 #define TEMP_POS_10_THRESHOLD  10
 #define TEMP_POS_10_THRES_PLUS_X_DEGREE 16
 
 #define TEMP_POS_0_THRESHOLD  0
-#define TEMP_POS_0_THRES_PLUS_X_DEGREE 6
+#define TEMP_POS_0_THRES_PLUS_X_DEGREE 3
+
+#define TEMP_POS_0_THRES_MINUS_X_DEGREE 8
+#define TEMP_POS_30_THRES_PLUS_X_DEGREE 32
+#define TEMP_POS_40_THRES_PLUS_X_DEGREE 46
 
 #ifdef CONFIG_MTK_FAN5405_SUPPORT
 #define TEMP_NEG_10_THRESHOLD  0
@@ -279,6 +294,14 @@ struct battery_custom_data {
 	int ta_9v_support;
 };
 
+typedef struct 
+{
+	UINT32			batteryId;
+	UINT32			adcChannelVol;
+	UINT32			adcChannel;
+} PMU_BatteryidStruct;
+/*[---End add by Rachel, support 2nd battery,20141208---]*/
+
 /*****************************************************************************
  *  Extern Variable
  ****************************************************************************/
@@ -359,3 +382,4 @@ extern void reset_parameter_dod_charger_plug_event(void);
 
 
 #endif				/* #ifndef BATTERY_COMMON_H */
+

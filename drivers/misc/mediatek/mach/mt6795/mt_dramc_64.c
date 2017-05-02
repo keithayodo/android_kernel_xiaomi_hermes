@@ -977,6 +977,20 @@ unsigned int DRAM_MRR(int MRR_num)
     return MRR_value;
 }
 
+/*jasond add read_dram_manfid*/
+unsigned int read_dram_manfid(void)
+{
+    unsigned int value;
+        
+    value = DRAM_MRR(5) & 0x7;
+    return value;
+}
+
+static ssize_t read_dram_manfid_show(struct device_driver *driver, char *buf)
+{
+		return snprintf(buf, PAGE_SIZE, "%d\n", read_dram_manfid());
+}
+
 unsigned int read_dram_temperature(void)
 {
     unsigned int value;
@@ -1081,6 +1095,9 @@ DRIVER_ATTR(emi_clk_mem_test, 0664, complex_mem_test_show, complex_mem_test_stor
 #ifdef APDMA_TEST
 DRIVER_ATTR(dram_dummy_read_test, 0664, DFS_APDMA_TEST_show, DFS_APDMA_TEST_store);
 #endif
+
+/*jasond add read_dram_manfid*/
+DRIVER_ATTR(read_dram_manfid_test, 0664, read_dram_manfid_show, NULL);
 
 #ifdef READ_DRAM_TEMP_TEST
 DRIVER_ATTR(read_dram_temp_test, 0664, read_dram_temp_show, read_dram_temp_store);
@@ -1196,6 +1213,14 @@ int __init dram_test_init(void)
         return ret;
     }
 #endif
+
+	/*jasond add for read manfid*/
+	ret = driver_create_file(&dram_test_drv, &driver_attr_read_dram_manfid_test);
+	if (ret) {
+		printk(KERN_ERR "jasond add fail to create the read dram manfid sysfs files\n");
+		return ret;
+	}
+	/*add end*/
 
 #ifdef READ_DRAM_TEMP_TEST
     ret = driver_create_file(&dram_test_drv, &driver_attr_read_dram_temp_test);

@@ -232,7 +232,8 @@ static ssize_t TMP103_HW_Write_Proc(struct file *file, const char *buf, unsigned
 {
 		int ret;
 	  int i_par=0;
-	  
+	len = (len < (sizeof(cmd_buf) - 1)) ? len : (sizeof(cmd_buf) - 1);
+
 	  ret = copy_from_user(cmd_buf, buf, len);
 	  if (ret < 0)return -1;
 	  	

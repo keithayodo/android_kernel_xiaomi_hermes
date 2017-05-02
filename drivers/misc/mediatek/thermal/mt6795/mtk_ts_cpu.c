@@ -5132,7 +5132,7 @@ static int __init tscpu_init(void)
 #endif // #if CPT_ADAPTIVE_AP_COOLER
 
 #if MTKTSCPU_FAST_POLLING
-		entry = proc_create("tzcpu_fastpoll", S_IRUGO | S_IWUSR | S_IWGRP, mtktscpu_dir, &mtktscpu_fastpoll_fops);
+		entry = proc_create("tzcpu_fastpoll", S_IRUGO | S_IWUSR | S_IWGRP | S_IWGRP, mtktscpu_dir, &mtktscpu_fastpoll_fops);
 		if (entry) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
             proc_set_user(entry, 0, 1000);
@@ -5142,7 +5142,7 @@ static int __init tscpu_init(void)
 		}
 #endif // #if MTKTSCPU_FAST_POLLING
 
-		entry = proc_create("tzcpu_Tj_out_via_HW_pin", S_IRUGO | S_IWUSR, mtktscpu_dir, &mtktscpu_Tj_out_fops);
+		entry = proc_create("tzcpu_Tj_out_via_HW_pin", S_IRUGO | S_IWUSR | S_IWGRP, mtktscpu_dir, &mtktscpu_Tj_out_fops);
         if (entry) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
             proc_set_user(entry, 0, 1000);
@@ -5152,7 +5152,7 @@ static int __init tscpu_init(void)
 		}
 
 #if THERMAL_GPIO_OUT_TOGGLE
-		entry = proc_create("tzcpu_GPIO_out_monitor", S_IRUGO | S_IWUSR, mtktscpu_dir, &mtktscpu_GPIO_out_fops);
+		entry = proc_create("tzcpu_GPIO_out_monitor", S_IRUGO | S_IWUSR | S_IWGRP, mtktscpu_dir, &mtktscpu_GPIO_out_fops);
         if (entry) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
             proc_set_user(entry, 0, 1000);
@@ -5163,7 +5163,7 @@ static int __init tscpu_init(void)
 #endif
 
         /* +ASC+ */
-		entry = proc_create("clatm", S_IRUGO | S_IWUSR, mtktscpu_dir, &mtktscpu_atm_fops);
+		entry = proc_create("clatm", S_IRUGO | S_IWUSR | S_IWGRP, mtktscpu_dir, &mtktscpu_atm_fops);
         if (entry) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
             proc_set_user(entry, 0, 1000);
@@ -5174,7 +5174,7 @@ static int __init tscpu_init(void)
         /* -ASC- */
 
 #if THERMAL_HEADROOM
-        entry = proc_create("clthp", S_IRUGO | S_IWUSR, mtktscpu_dir, &mtktscpu_thp_fops);
+        entry = proc_create("clthp", S_IRUGO | S_IWUSR | S_IWGRP, mtktscpu_dir, &mtktscpu_thp_fops);
         if (entry) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
             proc_set_user(entry, 0, 1000);
@@ -5185,7 +5185,7 @@ static int __init tscpu_init(void)
 #endif
 
 #if CONTINUOUS_TM
-        entry = proc_create("clctm", S_IRUGO | S_IWUSR, mtktscpu_dir, &mtktscpu_ctm_fops);
+        entry = proc_create("clctm", S_IRUGO | S_IWUSR | S_IWGRP, mtktscpu_dir, &mtktscpu_ctm_fops);
         if (entry) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
             proc_set_user(entry, 0, 1000);

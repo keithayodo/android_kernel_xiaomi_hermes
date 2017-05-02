@@ -161,6 +161,7 @@ disp_lcm_handle *disp_lcm_probe(char *plcm_name, LCM_INTERFACE_ID lcm_id)
 
 	int ret = 0;
 	int lcmindex = 0;
+	int lcd_gamma = 0;
 	bool isLCMFound = false;
 	bool isLCMInited = false;
 
@@ -221,7 +222,7 @@ disp_lcm_handle *disp_lcm_probe(char *plcm_name, LCM_INTERFACE_ID lcm_id)
 		plcm->params = lcm_param;
 		plcm->drv = lcm_drv;
 		plcm->is_inited = isLCMInited;
-		plcm->index = lcmindex;
+		plcm->index = lcd_gamma;
 	} else {
 		DISPERR("FATAL ERROR!!!kzalloc plcm and plcm->params failed\n");
 		goto FAIL;

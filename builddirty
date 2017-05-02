@@ -1,0 +1,19 @@
+#!/bin/sh
+
+restore='\033[0m'
+KERNEL_DIR=$PWD
+blue='\033[0;34m'
+
+export ARCH=arm64
+export SUBARCH=arm64
+
+echo "${blue}"
+echo "***********************************************"
+echo "            Compiling HermesKernel             "
+echo "***********************************************"
+make hermes_defconfig
+make -j8
+mkdir output
+cp arch/arm64/boot/Image.gz-dtb output/Image.gz-dtb
+cp arch/arm64/boot/Image.gz output/Image.gz
+echo "Compiled kernel is in the output folder"

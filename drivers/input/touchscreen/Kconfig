@@ -1395,20 +1395,11 @@ config TOUCHSCREEN_SYNAPTICS
 	  To compile this driver as a module, choose M here: the
 	  module will be called Synaptics.
 
-config TOUCHSCREEN_SWEEP2WAKE
-	tristate "Sweep2Wake for touchscreens"
-	select TOUCHSCREEN_PREVENT_SLEEP
-	default n
-
-config TOUCHSCREEN_DOUBLETAP2WAKE
-	tristate "DoubleTap2Wake for touchscreens"
-	select TOUCHSCREEN_PREVENT_SLEEP
-	default n
-
-config TOUCHSCREEN_PREVENT_SLEEP
-	bool "Inihibit sleep on modified touchscreen drivers"
-	default n
+config MZ_TOUCHSCREEN_GESTURE
+	bool "Meizu touchscreen gesture handling module"
 	help
-	  This disables the sleep function of modified touchscreen drivers.
-	  
+	  Say Y add touchscreen gesture handling module.
+
+	  If unsure, say N.
+
 endif
